@@ -1,0 +1,6 @@
+{
+  "name": "Naseeb Lal Market",
+  "description": "Real-time market rent, shop and tenant management tracker with role-based access and cloud synchronization for Naseeb Lal Market.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

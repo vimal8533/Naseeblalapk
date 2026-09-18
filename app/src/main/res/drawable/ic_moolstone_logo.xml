@@ -1,0 +1,150 @@
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="48dp"
+    android:height="48dp"
+    android:viewportWidth="100"
+    android:viewportHeight="100">
+
+    <!-- Soft circular ambient background badge -->
+    <path
+        android:fillColor="#0D1B2A"
+        android:pathData="M50,6 A44,44 0 1,0 50,94 A44,44 0 1,0 50,6 Z" />
+
+    <!-- Outer subtle rim -->
+    <path
+        android:strokeColor="#1E3A5F"
+        android:strokeWidth="1.5"
+        android:pathData="M50,6 A44,44 0 1,0 50,94 A44,44 0 1,0 50,6 Z" />
+
+    <!-- LEFT SIDE: Green Botanical Leaf Brain Hemisphere -->
+    <!-- Outer brain leaf contour -->
+    <path
+        android:strokeColor="#43A047"
+        android:strokeWidth="3.2"
+        android:strokeLineCap="round"
+        android:strokeLineJoin="round"
+        android:pathData="M48,15 C32,15 16,28 16,48 C16,66 30,82 48,85" />
+
+    <!-- Inner main leaf curve -->
+    <path
+        android:strokeColor="#2E7D32"
+        android:strokeWidth="2.8"
+        android:strokeLineCap="round"
+        android:strokeLineJoin="round"
+        android:pathData="M48,84 C38,80 26,68 26,50 C26,34 38,22 48,16" />
+
+    <!-- Upper leaf lobe 1 -->
+    <path
+        android:strokeColor="#66BB6A"
+        android:strokeWidth="2.5"
+        android:strokeLineCap="round"
+        android:strokeLineJoin="round"
+        android:pathData="M48,24 C38,25 32,32 34,40 C38,41 44,34 48,32" />
+
+    <!-- Upper-mid leaf lobe 2 -->
+    <path
+        android:strokeColor="#4CAF50"
+        android:strokeWidth="2.5"
+        android:strokeLineCap="round"
+        android:strokeLineJoin="round"
+        android:pathData="M48,38 C34,40 28,49 31,58 C36,58 43,50 48,46" />
+
+    <!-- Lower-mid leaf lobe 3 -->
+    <path
+        android:strokeColor="#388E3C"
+        android:strokeWidth="2.5"
+        android:strokeLineCap="round"
+        android:strokeLineJoin="round"
+        android:pathData="M48,52 C35,56 30,65 34,73 C39,72 44,64 48,60" />
+
+    <!-- Bottom leaf vein -->
+    <path
+        android:strokeColor="#81C784"
+        android:strokeWidth="2.2"
+        android:strokeLineCap="round"
+        android:strokeLineJoin="round"
+        android:pathData="M48,68 C40,71 36,78 40,82" />
+
+    <!-- Leaf center stem divider -->
+    <path
+        android:strokeColor="#2E7D32"
+        android:strokeWidth="2.5"
+        android:strokeLineCap="round"
+        android:pathData="M48,16 L48,84" />
+
+    <!-- RIGHT SIDE: Tech Blue Circuit Brain Hemisphere -->
+    <!-- Vertical circuit bus spine -->
+    <path
+        android:strokeColor="#0288D1"
+        android:strokeWidth="2.8"
+        android:strokeLineCap="round"
+        android:pathData="M52,16 L52,84" />
+
+    <!-- Outer tech brain contour -->
+    <path
+        android:strokeColor="#039BE5"
+        android:strokeWidth="3.2"
+        android:strokeLineCap="round"
+        android:strokeLineJoin="round"
+        android:pathData="M52,15 C68,15 84,28 84,48 C84,66 70,82 52,85" />
+
+    <!-- Trace 1 (Top Branch) -->
+    <path
+        android:strokeColor="#29B6F6"
+        android:strokeWidth="2.2"
+        android:strokeLineCap="round"
+        android:strokeLineJoin="miter"
+        android:pathData="M52,24 L64,24 L64,20" />
+    <path
+        android:fillColor="#4FC3F7"
+        android:pathData="M64,18 A2.8,2.8 0 1,0 64,23.6 A2.8,2.8 0 1,0 64,18 Z" />
+
+    <!-- Trace 2 (Upper Mid Branch) -->
+    <path
+        android:strokeColor="#0288D1"
+        android:strokeWidth="2.2"
+        android:strokeLineCap="round"
+        android:strokeLineJoin="miter"
+        android:pathData="M52,36 L70,36 L70,30" />
+    <path
+        android:fillColor="#0288D1"
+        android:pathData="M70,28 A2.8,2.8 0 1,0 70,33.6 A2.8,2.8 0 1,0 70,28 Z" />
+
+    <!-- Trace 3 (Middle Main Horizontal Branch) -->
+    <path
+        android:strokeColor="#00E5FF"
+        android:strokeWidth="2.2"
+        android:strokeLineCap="round"
+        android:strokeLineJoin="miter"
+        android:pathData="M52,48 L76,48 L76,42" />
+    <path
+        android:fillColor="#00E5FF"
+        android:pathData="M76,40 A2.8,2.8 0 1,0 76,45.6 A2.8,2.8 0 1,0 76,40 Z" />
+
+    <!-- Trace 4 (Lower Mid Branch) -->
+    <path
+        android:strokeColor="#0288D1"
+        android:strokeWidth="2.2"
+        android:strokeLineCap="round"
+        android:strokeLineJoin="miter"
+        android:pathData="M52,60 L68,60 L68,68" />
+    <path
+        android:fillColor="#0288D1"
+        android:pathData="M68,68 A2.8,2.8 0 1,0 68,73.6 A2.8,2.8 0 1,0 68,68 Z" />
+
+    <!-- Trace 5 (Bottom Branch) -->
+    <path
+        android:strokeColor="#29B6F6"
+        android:strokeWidth="2.2"
+        android:strokeLineCap="round"
+        android:strokeLineJoin="miter"
+        android:pathData="M52,72 L60,72 L60,78" />
+    <path
+        android:fillColor="#4FC3F7"
+        android:pathData="M60,78 A2.8,2.8 0 1,0 60,83.6 A2.8,2.8 0 1,0 60,78 Z" />
+
+    <!-- Inner circuit connector dot -->
+    <path
+        android:fillColor="#81D4FA"
+        android:pathData="M52,48 A2,2 0 1,0 52,52 A2,2 0 1,0 52,48 Z" />
+
+</vector>
