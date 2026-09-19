@@ -20,6 +20,8 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Description
+import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.SwapHoriz
 import androidx.compose.material.icons.filled.Apartment
 import androidx.compose.material.icons.filled.Store
@@ -65,8 +67,16 @@ import com.example.data.SyncStatus
 import com.example.model.AppWorkspaceMode
 import com.example.model.UserRole
 import com.example.model.UserSession
+import androidx.compose.material.icons.filled.HistoryEdu
+import androidx.compose.material.icons.filled.Lock
+import androidx.compose.material.icons.filled.ChevronRight
+import androidx.compose.material.icons.filled.DeleteForever
+import com.example.model.RentRecord
+import com.example.model.Tenant
+import com.example.ui.components.DeletedTenantsArchiveDialog
 import com.example.ui.components.MarketLogoMedallion
 import com.example.ui.theme.GoldAccent
+import com.example.ui.theme.GoldDark
 import com.example.ui.theme.NavyDark
 import com.example.ui.theme.NavyPrimary
 import com.example.ui.theme.StatusPaid
@@ -83,6 +93,12 @@ fun ProfileScreen(
     totalShops: Int,
     totalTenants: Int,
     workspaceMode: AppWorkspaceMode = AppWorkspaceMode.PUBLIC_MARKET,
+    archivedTenants: List<Tenant> = emptyList(),
+    allHistoricalRents: List<RentRecord> = emptyList(),
+    selectedMonth: String = "September",
+    selectedYear: Int = 2026,
+    onRestoreTenant: (tenantId: String) -> Unit = {},
+    onPermanentlyDeleteTenant: (tenantId: String) -> Unit = {},
     onToggleWorkspace: () -> Unit = {},
     onForceRefresh: () -> Unit,
     onLogout: () -> Unit,
@@ -91,6 +107,7 @@ fun ProfileScreen(
 ) {
     var showLogoutDialog by remember { mutableStateOf(false) }
     var showEditAdminDialog by remember { mutableStateOf(false) }
+    var showMasterArchiveDialog by remember { mutableStateOf(false) }
     var editAdminName by remember(user) { mutableStateOf(user?.displayName ?: "Vimal Kumar") }
     var editAdminPhone by remember(user) { mutableStateOf(user?.phone ?: "9876543210") }
 
@@ -426,6 +443,122 @@ fun ProfileScreen(
             }
         }
 
+        // Master Only: Deleted & Exited Tenants Archive Section
+        if (isSuperAdmin) {
+            Spacer(modifier = Modifier.height(14.dp))
+            Card(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .testTag("master_deleted_tenants_archive_card"),
+                shape = RoundedCornerShape(16.dp),
+                colors = CardDefaults.cardColors(containerColor = Color(0xFFFEF2F2)),
+                border = androidx.compose.foundation.BorderStroke(1.2.dp, Color(0xFFFECACA)),
+                elevation = CardDefaults.cardElevation(defaultElevation = 1.dp)
+            ) {
+                Column(modifier = Modifier.padding(16.dp)) {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            modifier = Modifier.weight(1f)
+                        ) {
+                            Box(
+                                modifier = Modifier
+                                    .size(38.dp)
+                                    .clip(CircleShape)
+                                    .background(Color(0xFFDC2626).copy(alpha = 0.12f)),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Filled.HistoryEdu,
+                                    contentDescription = "Archive",
+                                    tint = Color(0xFFDC2626),
+                                    modifier = Modifier.size(20.dp)
+                                )
+                            }
+                            Spacer(modifier = Modifier.width(12.dp))
+                            Column {
+                                Row(verticalAlignment = Alignment.CenterVertically) {
+                                    Text(
+                                        text = "Deleted / Exited Tenants",
+                                        fontWeight = FontWeight.Bold,
+                                        fontSize = 14.sp,
+                                        color = Color(0xFF991B1B)
+                                    )
+                                    Spacer(modifier = Modifier.width(6.dp))
+                                    Box(
+                                        modifier = Modifier
+                                            .clip(RoundedCornerShape(6.dp))
+                                            .background(GoldAccent.copy(alpha = 0.2f))
+                                            .padding(horizontal = 6.dp, vertical = 2.dp)
+                                    ) {
+                                        Text(
+                                            text = "MASTER ONLY",
+                                            fontSize = 9.sp,
+                                            fontWeight = FontWeight.ExtraBold,
+                                            color = GoldDark
+                                        )
+                                    }
+                                }
+                                Spacer(modifier = Modifier.height(2.dp))
+                                Text(
+                                    text = "${archivedTenants.size} tenant(s) archived with past history",
+                                    fontSize = 11.5.sp,
+                                    color = Color(0xFF7F1D1D).copy(alpha = 0.8f)
+                                )
+                            }
+                        }
+
+                        Box(
+                            modifier = Modifier
+                                .clip(RoundedCornerShape(8.dp))
+                                .background(Color(0xFFDC2626))
+                                .padding(horizontal = 8.dp, vertical = 3.dp)
+                        ) {
+                            Text(
+                                text = "${archivedTenants.size}",
+                                color = Color.White,
+                                fontWeight = FontWeight.Bold,
+                                fontSize = 11.sp
+                            )
+                        }
+                    }
+
+                    Spacer(modifier = Modifier.height(12.dp))
+
+                    OutlinedButton(
+                        onClick = { showMasterArchiveDialog = true },
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .testTag("open_master_archive_button"),
+                        shape = RoundedCornerShape(10.dp),
+                        colors = ButtonDefaults.outlinedButtonColors(
+                            containerColor = Color.White
+                        ),
+                        border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFFFCA5A5)),
+                        contentPadding = PaddingValues(vertical = 8.dp)
+                    ) {
+                        Icon(
+                            imageVector = Icons.Filled.HistoryEdu,
+                            contentDescription = null,
+                            tint = Color(0xFFDC2626),
+                            modifier = Modifier.size(16.dp)
+                        )
+                        Spacer(modifier = Modifier.width(6.dp))
+                        Text(
+                            text = "Manage Deleted & Exited Records",
+                            fontWeight = FontWeight.Bold,
+                            fontSize = 12.5.sp,
+                            color = Color(0xFFDC2626)
+                        )
+                    }
+                }
+            }
+        }
+
         Spacer(modifier = Modifier.height(24.dp))
 
         // Logout Button
@@ -528,6 +661,19 @@ fun ProfileScreen(
                     Text("Cancel")
                 }
             }
+        )
+    }
+
+    // Master-Only Deleted Tenants Archive Dialog
+    if (showMasterArchiveDialog) {
+        DeletedTenantsArchiveDialog(
+            archivedTenants = archivedTenants,
+            allHistoricalRents = allHistoricalRents,
+            initialMonth = selectedMonth,
+            initialYear = selectedYear,
+            onRestoreTenant = onRestoreTenant,
+            onPermanentlyDeleteTenant = onPermanentlyDeleteTenant,
+            onDismiss = { showMasterArchiveDialog = false }
         )
     }
 }

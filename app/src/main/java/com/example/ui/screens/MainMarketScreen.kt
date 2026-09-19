@@ -265,6 +265,9 @@ fun MainMarketScreen(
                         onUpdateElectricityMeter = { rentId, prev, current, rate ->
                             viewModel.updateElectricityMeterReading(rentId, prev, current, rate)
                         },
+                        onSaveBatchMeterReadings = { entries ->
+                            viewModel.saveBatchMeterReadings(entries)
+                        },
                         isLoading = isLoading
                     )
                 }
@@ -345,6 +348,12 @@ fun MainMarketScreen(
                         totalShops = shops.size,
                         totalTenants = tenants.size,
                         workspaceMode = workspaceMode,
+                        archivedTenants = archivedTenants,
+                        allHistoricalRents = allHistoricalRents,
+                        selectedMonth = selectedMonth,
+                        selectedYear = selectedYear,
+                        onRestoreTenant = { viewModel.restoreTenant(it) },
+                        onPermanentlyDeleteTenant = { viewModel.permanentlyDeleteTenant(it) },
                         onToggleWorkspace = { viewModel.toggleWorkspace() },
                         onForceRefresh = { viewModel.forceRefresh() },
                         onUpdateAdminProfile = { name, phone -> viewModel.updateAdminProfile(name, phone) },

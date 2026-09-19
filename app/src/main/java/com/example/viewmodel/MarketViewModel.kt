@@ -1382,4 +1382,76 @@ class MarketViewModel(application: Application) : AndroidViewModel(application) 
             )
         }
     }
+
+    /**
+     * Batch update meter readings for multiple sub-metered flats at once.
+     * entries: List of Triple<rentId, Triple<prevReading, currentReading, ratePerUnit>, electricityBill>
+     */
+    fun saveBatchMeterReadings(
+        entries: List<Triple<String, Triple<Double, Double, Double>, Double>>
+    ) {
+        viewModelScope.launch {
+            if (entries.isEmpty()) return@launch
+
+            var updatedCount = 0
+            entries.forEach { (rentId, readings, _) ->
+                val (prev, current, rate) = readings
+                val existingRent = rents.value.find { it.id == rentId }
+                if (existingRent != null) {
+                    val validPrev = prev.coerceAtLeast(0.0)
+                    val validCurrent = current.coerceAtLeast(validPrev)
+                    val validRate = rate.coerceAtLeast(0.0)
+                    val units = (validCurrent - validPrev).coerceAtLeast(0.0)
+                    val elecBill = units * validRate
+
+                    val baseRent = (existingRent.amountDue - existingRent.electricityBill).coerceAtLeast(0.0)
+                    val newAmountDue = baseRent + elecBill
+                    val newStatus = when {
+                        newAmountDue <= 0.0 -> "PAID"
+                        existingRent.amountPaid >= newAmountDue -> "PAID"
+                        existingRent.amountPaid > 0.0 -> "PARTIAL"
+                        else -> "PENDING"
+                    }
+
+                    val updatedRent = existingRent.copy(
+                        prevMeterReading = validPrev,
+                        currentMeterReading = validCurrent,
+                        electricityRatePerUnit = validRate,
+                        electricityBill = elecBill,
+                        amountDue = newAmountDue,
+                        status = newStatus,
+                        updatedAt = System.currentTimeMillis()
+                    )
+                    sync.saveRentRecord(updatedRent)
+
+                    // Also update Tenant's last recorded meter reading and rate
+                    val tenant = rawTenants.value.find { it.id == existingRent.tenantId }
+                    if (tenant != null) {
+                        val updatedTenant = tenant.copy(
+                            lastMeterReading = validCurrent,
+                            electricityRatePerUnit = validRate,
+                            electricityBill = elecBill,
+                            updatedAt = System.currentTimeMillis()
+                        )
+                        sync.saveTenant(updatedTenant)
+                    }
+                    updatedCount++
+                }
+            }
+
+            // Log batch activity
+            val user = currentUser.value?.displayName ?: "Admin"
+            sync.logActivity(
+                ActivityLog(
+                    id = "act_${System.currentTimeMillis()}_${UUID.randomUUID().toString().take(4)}",
+                    timestamp = System.currentTimeMillis(),
+                    userName = user,
+                    userRole = currentUser.value?.role?.name ?: "ADMIN",
+                    actionType = "BATCH_METER_READING",
+                    title = "Batch Electricity Meter Reading: $updatedCount Flats",
+                    details = "Recorded meter readings for $updatedCount sub-metered flats in ${selectedMonth.value} ${selectedYear.value}."
+                )
+            )
+        }
+    }
 }

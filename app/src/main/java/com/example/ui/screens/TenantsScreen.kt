@@ -26,6 +26,7 @@ import androidx.compose.material.icons.filled.Apartment
 import androidx.compose.material.icons.filled.AccountBalance
 import androidx.compose.material.icons.filled.Call
 import androidx.compose.material.icons.filled.Delete
+import androidx.compose.material.icons.filled.Description
 import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.ElectricMeter
 import androidx.compose.material.icons.filled.HistoryEdu
@@ -84,7 +85,6 @@ import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.clickable
 import com.example.model.RentRecord
-import com.example.ui.components.DeletedTenantsArchiveDialog
 
 @Composable
 fun TenantsScreen(
@@ -126,7 +126,6 @@ fun TenantsScreen(
     var searchQuery by remember { mutableStateOf("") }
     var selectedFilter by remember { mutableStateOf("ALL") } // "ALL", "SINGLE", "MULTI"
     var showAddDialog by remember { mutableStateOf(false) }
-    var showArchiveDialog by remember { mutableStateOf(false) }
     var tenantToEdit by remember { mutableStateOf<Tenant?>(null) }
     var tenantToDelete by remember { mutableStateOf<Tenant?>(null) }
 
@@ -235,7 +234,7 @@ fun TenantsScreen(
                 Spacer(modifier = Modifier.height(10.dp))
             }
 
-            // Summary Stats Bar & Deleted Tenants Box Button
+            // Summary Stats Bar
             item {
                 Row(
                     modifier = Modifier
@@ -256,30 +255,6 @@ fun TenantsScreen(
                             fontSize = 11.sp,
                             fontWeight = FontWeight.Medium,
                             color = MaterialTheme.colorScheme.onSurfaceVariant
-                        )
-                    }
-
-                    // Button to open the Deleted Tenants Archive Box
-                    OutlinedButton(
-                        onClick = { showArchiveDialog = true },
-                        shape = RoundedCornerShape(10.dp),
-                        contentPadding = PaddingValues(horizontal = 10.dp, vertical = 4.dp),
-                        colors = ButtonDefaults.outlinedButtonColors(containerColor = Color(0xFFFEF2F2)),
-                        border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFFFECACA)),
-                        modifier = Modifier.testTag("open_deleted_tenants_box_button")
-                    ) {
-                        Icon(
-                            imageVector = Icons.Filled.HistoryEdu,
-                            contentDescription = null,
-                            tint = Color(0xFFDC2626),
-                            modifier = Modifier.size(15.dp)
-                        )
-                        Spacer(modifier = Modifier.width(5.dp))
-                        Text(
-                            text = "Deleted Box (${archivedTenants.size})",
-                            fontSize = 11.5.sp,
-                            fontWeight = FontWeight.Bold,
-                            color = Color(0xFFDC2626)
                         )
                     }
                 }
@@ -480,19 +455,6 @@ fun TenantsScreen(
                     Text("Cancel")
                 }
             }
-        )
-    }
-
-    // Deleted / Exited Tenants Archive Dialog
-    if (showArchiveDialog) {
-        DeletedTenantsArchiveDialog(
-            archivedTenants = archivedTenants,
-            allHistoricalRents = allHistoricalRents,
-            initialMonth = selectedMonth,
-            initialYear = selectedYear,
-            onRestoreTenant = onRestoreTenant,
-            onPermanentlyDeleteTenant = onPermanentlyDeleteTenant,
-            onDismiss = { showArchiveDialog = false }
         )
     }
 }

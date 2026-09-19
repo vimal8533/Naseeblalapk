@@ -28,6 +28,7 @@ import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Apartment
 import androidx.compose.material.icons.filled.CalendarToday
 import androidx.compose.material.icons.filled.CheckCircle
+import androidx.compose.material.icons.filled.Description
 import androidx.compose.material.icons.filled.Download
 import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.EditCalendar
@@ -89,8 +90,8 @@ import com.example.model.RentRecord
 import com.example.model.Shop
 import com.example.model.Tenant
 import com.example.model.UserSession
+import com.example.ui.components.BatchMeterReadingDialog
 import com.example.ui.components.BatchSmsReminderDialog
-import com.example.ui.components.DeletedTenantsArchiveDialog
 import com.example.ui.components.ElectricityMeterDialog
 import com.example.ui.components.CollectRentDialog
 import com.example.ui.components.CorrectPaymentDialog
@@ -149,6 +150,7 @@ fun DashboardScreen(
     onResetReminderStatus: (month: String, year: Int) -> Unit = { _, _ -> },
     onRecordManualRemindersSent: (month: String, year: Int, count: Int, channel: String) -> Unit = { _, _, _, _ -> },
     onUpdateElectricityMeter: (rentId: String, prev: Double, current: Double, rate: Double) -> Unit = { _, _, _, _ -> },
+    onSaveBatchMeterReadings: (entries: List<Triple<String, Triple<Double, Double, Double>, Double>>) -> Unit = { _ -> },
     isLoading: Boolean = false,
     modifier: Modifier = Modifier
 ) {
@@ -158,8 +160,8 @@ fun DashboardScreen(
     var rentForElectricityMeter by remember { mutableStateOf<RentRecord?>(null) }
     var monthDropdownExpanded by remember { mutableStateOf(false) }
     var showBatchSmsDialog by remember { mutableStateOf(false) }
+    var showBatchMeterDialog by remember { mutableStateOf(false) }
     var showDuesBreakdownDialog by remember { mutableStateOf(false) }
-    var showDeletedArchiveDialog by remember { mutableStateOf(false) }
 
     val isPersonalWorkspace = workspaceMode == AppWorkspaceMode.PRIVATE_PERSONAL
     val reminderKey = "${selectedYear}_${selectedMonth}${if (isPersonalWorkspace) "_personal" else ""}"
@@ -186,6 +188,14 @@ fun DashboardScreen(
 
     // Memoized Tenant Lookup Map for O(1) instantaneous access during scroll
     val tenantMap = remember(tenants) { tenants.associateBy { it.id } }
+
+    val subMeteredRentsForMonth = remember(rents, tenants, selectedMonth, selectedYear) {
+        rents.filter { rent ->
+            rent.month.equals(selectedMonth, ignoreCase = true) &&
+            rent.year == selectedYear &&
+            (rent.isPersonal || (tenantMap[rent.tenantId]?.isPersonal == true) || rent.electricityBill > 0 || rent.currentMeterReading > 0)
+        }
+    }
 
     // Dues data structure for tracking total arrears + current month dues per tenant
     data class TenantDuesSummary(
@@ -360,7 +370,7 @@ fun DashboardScreen(
                                     )
                                 },
                                 colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF15803D)),
-                                contentPadding = PaddingValues(horizontal = 12.dp, vertical = 8.dp),
+                                contentPadding = PaddingValues(horizontal = 10.dp, vertical = 8.dp),
                                 shape = RoundedCornerShape(10.dp),
                                 modifier = Modifier.testTag("export_monthly_excel_button")
                             ) {
@@ -370,8 +380,8 @@ fun DashboardScreen(
                                     tint = Color.White,
                                     modifier = Modifier.size(14.dp)
                                 )
-                                Spacer(modifier = Modifier.width(5.dp))
-                                Text("Excel", fontSize = 12.sp, fontWeight = FontWeight.Bold, color = Color.White)
+                                Spacer(modifier = Modifier.width(4.dp))
+                                Text("Excel", fontSize = 11.5.sp, fontWeight = FontWeight.Bold, color = Color.White)
                             }
                         }
 
@@ -533,6 +543,81 @@ fun DashboardScreen(
                                             fontSize = 12.sp,
                                             fontWeight = FontWeight.Bold
                                         )
+                                    }
+                                }
+                            }
+
+                            if (subMeteredRentsForMonth.isNotEmpty()) {
+                                Spacer(modifier = Modifier.height(8.dp))
+                                Surface(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .testTag("batch_meter_reading_card"),
+                                    shape = RoundedCornerShape(10.dp),
+                                    color = Color(0xFF0F766E).copy(alpha = 0.08f),
+                                    border = BorderStroke(1.dp, Color(0xFF0F766E).copy(alpha = 0.25f))
+                                ) {
+                                    Row(
+                                        modifier = Modifier
+                                            .fillMaxWidth()
+                                            .padding(horizontal = 12.dp, vertical = 8.dp),
+                                        horizontalArrangement = Arrangement.SpaceBetween,
+                                        verticalAlignment = Alignment.CenterVertically
+                                    ) {
+                                        Row(
+                                            verticalAlignment = Alignment.CenterVertically,
+                                            modifier = Modifier.weight(1f)
+                                        ) {
+                                            Box(
+                                                modifier = Modifier
+                                                    .size(30.dp)
+                                                    .clip(CircleShape)
+                                                    .background(Color(0xFFFEF3C7)),
+                                                contentAlignment = Alignment.Center
+                                            ) {
+                                                Icon(
+                                                    imageVector = Icons.Filled.ElectricMeter,
+                                                    contentDescription = null,
+                                                    tint = Color(0xFFD97706),
+                                                    modifier = Modifier.size(16.dp)
+                                                )
+                                            }
+                                            Spacer(modifier = Modifier.width(10.dp))
+                                            Column {
+                                                Text(
+                                                    text = "Monthly Meter Readings",
+                                                    fontWeight = FontWeight.Bold,
+                                                    fontSize = 12.5.sp,
+                                                    color = Color(0xFF0F766E)
+                                                )
+                                                val enteredCount = subMeteredRentsForMonth.count { it.currentMeterReading > 0.0 }
+                                                Text(
+                                                    text = if (enteredCount == subMeteredRentsForMonth.size) "All ${subMeteredRentsForMonth.size} flats recorded ✓" else "$enteredCount of ${subMeteredRentsForMonth.size} recorded for $selectedMonth",
+                                                    fontSize = 11.sp,
+                                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                                )
+                                            }
+                                        }
+
+                                        Button(
+                                            onClick = { showBatchMeterDialog = true },
+                                            colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF0F766E)),
+                                            contentPadding = PaddingValues(horizontal = 12.dp, vertical = 6.dp),
+                                            shape = RoundedCornerShape(8.dp),
+                                            modifier = Modifier.testTag("enter_batch_readings_btn")
+                                        ) {
+                                            Icon(
+                                                imageVector = Icons.Filled.ElectricMeter,
+                                                contentDescription = null,
+                                                modifier = Modifier.size(13.dp)
+                                            )
+                                            Spacer(modifier = Modifier.width(5.dp))
+                                            Text(
+                                                text = "Enter Readings",
+                                                fontSize = 12.sp,
+                                                fontWeight = FontWeight.Bold
+                                            )
+                                        }
                                     }
                                 }
                             }
@@ -698,65 +783,6 @@ fun DashboardScreen(
                             modifier = Modifier.weight(1f)
                         )
                     }
-
-                    // Deleted / Exited Tenants Archive Banner (Safe historical records box)
-                    Card(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(top = 8.dp)
-                            .clickable { showDeletedArchiveDialog = true }
-                            .testTag("dashboard_deleted_archive_card"),
-                        shape = RoundedCornerShape(12.dp),
-                        colors = CardDefaults.cardColors(containerColor = Color(0xFFFEF2F2)),
-                        border = BorderStroke(1.dp, Color(0xFFFECACA))
-                    ) {
-                        Row(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .padding(horizontal = 14.dp, vertical = 9.dp),
-                            horizontalArrangement = Arrangement.SpaceBetween,
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            Row(
-                                verticalAlignment = Alignment.CenterVertically,
-                                horizontalArrangement = Arrangement.spacedBy(10.dp)
-                            ) {
-                                Box(
-                                    modifier = Modifier
-                                        .size(32.dp)
-                                        .clip(CircleShape)
-                                        .background(Color(0xFFFEE2E2)),
-                                    contentAlignment = Alignment.Center
-                                ) {
-                                    Icon(
-                                        imageVector = Icons.Filled.HistoryEdu,
-                                        contentDescription = null,
-                                        tint = Color(0xFFDC2626),
-                                        modifier = Modifier.size(17.dp)
-                                    )
-                                }
-                                Column {
-                                    Text(
-                                        text = "📂 Deleted / Exited Tenants Box (${archivedTenants.size})",
-                                        fontSize = 12.5.sp,
-                                        fontWeight = FontWeight.Bold,
-                                        color = Color(0xFF991B1B)
-                                    )
-                                    Text(
-                                        text = "Check past month & year ledger of vacated tenants safely",
-                                        fontSize = 10.5.sp,
-                                        color = Color(0xFFB91C1C)
-                                    )
-                                }
-                            }
-                            Icon(
-                                imageVector = Icons.AutoMirrored.Filled.ArrowForwardIos,
-                                contentDescription = null,
-                                tint = Color(0xFFDC2626),
-                                modifier = Modifier.size(13.dp)
-                            )
-                        }
-                    }
                 }
             }
 
@@ -902,6 +928,21 @@ fun DashboardScreen(
             },
             onConfirmSend = { senderName, senderPhone, simSlot, apiKey, onProgress, onComplete ->
                 onSendBatchReminders(selectedMonth, selectedYear, senderName, senderPhone, simSlot, apiKey, onProgress, onComplete)
+            }
+        )
+    }
+
+    // Dialog for Batch Meter Readings
+    if (showBatchMeterDialog) {
+        BatchMeterReadingDialog(
+            month = selectedMonth,
+            year = selectedYear,
+            subMeteredRents = subMeteredRentsForMonth,
+            tenants = tenants,
+            onDismiss = { showBatchMeterDialog = false },
+            onSaveBatch = { entries ->
+                onSaveBatchMeterReadings(entries)
+                showBatchMeterDialog = false
             }
         )
     }
@@ -1175,19 +1216,6 @@ fun DashboardScreen(
                 }
             }
         }
-    }
-
-    // Deleted / Exited Tenants Archive Dialog (Ledger by Month & Year)
-    if (showDeletedArchiveDialog) {
-        DeletedTenantsArchiveDialog(
-            archivedTenants = archivedTenants,
-            allHistoricalRents = allHistoricalRents,
-            initialMonth = selectedMonth,
-            initialYear = selectedYear,
-            onRestoreTenant = onRestoreTenant,
-            onPermanentlyDeleteTenant = onPermanentlyDeleteTenant,
-            onDismiss = { showDeletedArchiveDialog = false }
-        )
     }
 }
 
