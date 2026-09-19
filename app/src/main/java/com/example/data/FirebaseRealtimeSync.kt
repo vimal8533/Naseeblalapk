@@ -7,6 +7,7 @@ import android.net.NetworkCapabilities
 import android.net.NetworkRequest
 import android.util.Log
 import com.example.model.ActivityLog
+import com.example.model.AppUpdateInfo
 import com.example.model.MonthlyReminderRecord
 import com.example.model.RentRecord
 import com.example.model.Shop
@@ -98,6 +99,9 @@ class FirebaseRealtimeSync(private val context: Context) {
 
     private val _monthlyReminders = MutableStateFlow<Map<String, MonthlyReminderRecord>>(emptyMap())
     val monthlyReminders: StateFlow<Map<String, MonthlyReminderRecord>> = _monthlyReminders.asStateFlow()
+
+    private val _appUpdateInfo = MutableStateFlow<AppUpdateInfo?>(null)
+    val appUpdateInfo: StateFlow<AppUpdateInfo?> = _appUpdateInfo.asStateFlow()
 
     private val scope = CoroutineScope(Dispatchers.IO + Job())
     private var sseJob: Job? = null
@@ -376,6 +380,9 @@ class FirebaseRealtimeSync(private val context: Context) {
                     _monthlyReminders.value = current
                     persistCurrentStateToCache()
                 }
+                path.startsWith("/app_version_info") && data is JSONObject -> {
+                    _appUpdateInfo.value = parseAppUpdateInfo(data)
+                }
                 else -> {
                     // Fallback to full snapshot refresh
                     scope.launch { fetchInitialSnapshot() }
@@ -533,6 +540,12 @@ class FirebaseRealtimeSync(private val context: Context) {
             }
             _monthlyReminders.value = loadedReminders
 
+            // 7. App Version Update Info
+            val versionObj = root.optJSONObject("app_version_info")
+            if (versionObj != null) {
+                _appUpdateInfo.value = parseAppUpdateInfo(versionObj)
+            }
+
         } catch (e: Exception) {
             Log.e(tag, "parseFullDatabase error: ${e.message}")
         }
@@ -674,6 +687,68 @@ class FirebaseRealtimeSync(private val context: Context) {
             recipientsCount = obj.optInt("recipientsCount", 0),
             isSent = obj.optBoolean("isSent", true)
         )
+    }
+
+    private fun parseAppUpdateInfo(obj: JSONObject): AppUpdateInfo {
+        return AppUpdateInfo(
+            latestVersionCode = obj.optInt("latestVersionCode", 2),
+            latestVersionName = obj.optString("latestVersionName", "2.0"),
+            updateTitle = obj.optString("updateTitle", "New Update Available!"),
+            updateMessage = obj.optString("updateMessage", ""),
+            downloadUrl = obj.optString("downloadUrl", ""),
+            isMandatory = obj.optBoolean("isMandatory", false),
+            releasedDate = obj.optString("releasedDate", "")
+        )
+    }
+
+    fun publishAppUpdateInfo(info: AppUpdateInfo, onComplete: ((Boolean) -> Unit)? = null) {
+        scope.launch {
+            val json = JSONObject().apply {
+                put("latestVersionCode", info.latestVersionCode)
+                put("latestVersionName", info.latestVersionName)
+                put("updateTitle", info.updateTitle)
+                put("updateMessage", info.updateMessage)
+                put("downloadUrl", info.downloadUrl)
+                put("isMandatory", info.isMandatory)
+                put("releasedDate", info.releasedDate)
+            }
+            val success = sendPutRequest("app_version_info", json.toString())
+            if (success) {
+                _appUpdateInfo.value = info
+            }
+            withContext(Dispatchers.Main) {
+                onComplete?.invoke(success)
+            }
+        }
+    }
+
+    fun fetchLatestAppUpdateInfo(onResult: ((AppUpdateInfo?) -> Unit)? = null) {
+        scope.launch {
+            try {
+                val request = Request.Builder()
+                    .url("$baseUrl/app_version_info.json")
+                    .get()
+                    .build()
+                writeClient.newCall(request).execute().use { response ->
+                    if (response.isSuccessful) {
+                        val body = response.body?.string()
+                        if (body != null && body != "null" && body.isNotBlank()) {
+                            val parsed = parseAppUpdateInfo(JSONObject(body))
+                            _appUpdateInfo.value = parsed
+                            withContext(Dispatchers.Main) {
+                                onResult?.invoke(parsed)
+                            }
+                            return@use
+                        }
+                    }
+                }
+            } catch (e: Exception) {
+                Log.e(tag, "fetchLatestAppUpdateInfo error: ${e.message}")
+            }
+            withContext(Dispatchers.Main) {
+                onResult?.invoke(_appUpdateInfo.value)
+            }
+        }
     }
 
     private fun monthToOrder(month: String): Int {

@@ -4,6 +4,8 @@ import android.content.Intent
 import android.net.Uri
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
+import androidx.compose.foundation.horizontalScroll
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -129,8 +131,10 @@ fun TenantsScreen(
     var tenantToEdit by remember { mutableStateOf<Tenant?>(null) }
     var tenantToDelete by remember { mutableStateOf<Tenant?>(null) }
 
-    val filteredTenants = remember(tenants, searchQuery, selectedFilter) {
+    val filteredTenants = remember(tenants, searchQuery, selectedFilter, isPersonalWorkspace) {
         val base = when (selectedFilter) {
+            "SHOPS" -> tenants.filter { !it.isFlat }
+            "FLATS" -> tenants.filter { it.isFlat }
             "MULTI" -> tenants.filter { it.shopCount > 1 }
             "SINGLE" -> tenants.filter { it.shopCount <= 1 }
             else -> tenants
@@ -151,6 +155,12 @@ fun TenantsScreen(
     val totalAssignedShops = remember(filteredTenants) {
         filteredTenants.sumOf { it.shopCount }
     }
+    val totalFlats = remember(filteredTenants) {
+        filteredTenants.filter { it.isFlat }.sumOf { it.shopCount }
+    }
+    val totalShops = remember(filteredTenants) {
+        filteredTenants.filter { !it.isFlat }.sumOf { it.shopCount }
+    }
 
     Box(modifier = modifier.fillMaxSize()) {
         if (isLoading) {
@@ -167,7 +177,7 @@ fun TenantsScreen(
                         value = searchQuery,
                         onValueChange = { searchQuery = it },
                         placeholder = {
-                            Text(if (isPersonalWorkspace) "Search flat tenants (Name, Phone, Flat #)..." else "Search tenants (Name, Phone, Shop #)...")
+                            Text(if (isPersonalWorkspace) "Search flat tenants (Name, Phone, Flat #)..." else "Search tenants (Name, Phone, Shop #, Flat #)...")
                         },
                         leadingIcon = { Icon(Icons.Filled.Search, contentDescription = "Search") },
                         singleLine = true,
@@ -179,27 +189,36 @@ fun TenantsScreen(
                 }
             }
 
-            // Quick Filter Chips (All, Single Shop/Flat, Multi-Shop/Unit)
+            // Quick Filter Chips (All, Single Shop/Flat, Multi-Shop/Unit or Shops vs Flats in Market)
             item {
+                val multiCount = tenants.count { it.shopCount > 1 }
+                val singleCount = tenants.count { it.shopCount <= 1 }
+                val shopsCount = tenants.count { !it.isFlat }
+                val flatsCount = tenants.count { it.isFlat }
+
+                val chipsList = if (isPersonalWorkspace) {
+                    listOf(
+                        Triple("ALL", "All (${tenants.size})", Icons.Filled.People),
+                        Triple("SINGLE", "Single Flat ($singleCount)", Icons.Filled.Apartment),
+                        Triple("MULTI", "Multi-Flat ($multiCount)", Icons.Filled.Apartment)
+                    )
+                } else {
+                    listOf(
+                        Triple("ALL", "All (${tenants.size})", Icons.Filled.People),
+                        Triple("SHOPS", "Shops ($shopsCount)", Icons.Filled.Store),
+                        Triple("FLATS", "Flats ($flatsCount)", Icons.Filled.Apartment),
+                        Triple("MULTI", "Multi-Unit ($multiCount)", Icons.Filled.Store)
+                    )
+                }
+
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
+                        .horizontalScroll(rememberScrollState())
                         .padding(horizontal = 16.dp),
                     horizontalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
-                    val multiCount = tenants.count { it.shopCount > 1 }
-                    val singleCount = tenants.count { it.shopCount <= 1 }
-
-                    val singleLabel = if (isPersonalWorkspace) "Single Flat ($singleCount)" else "Single Shop ($singleCount)"
-                    val singleIcon = if (isPersonalWorkspace) Icons.Filled.Apartment else Icons.Filled.Store
-                    val multiLabel = if (isPersonalWorkspace) "Multi-Flat ($multiCount)" else "Multi-Shop ($multiCount)"
-                    val multiIcon = if (isPersonalWorkspace) Icons.Filled.Apartment else Icons.Filled.Store
-
-                    listOf(
-                        Triple("ALL", "All (${tenants.size})", Icons.Filled.People),
-                        Triple("SINGLE", singleLabel, singleIcon),
-                        Triple("MULTI", multiLabel, multiIcon)
-                    ).forEach { (filterKey, label, icon) ->
+                    chipsList.forEach { (filterKey, label, icon) ->
                         val isSelected = selectedFilter == filterKey
                         Box(
                             modifier = Modifier
@@ -211,7 +230,7 @@ fun TenantsScreen(
                                     shape = RoundedCornerShape(20.dp)
                                 )
                                 .clickable { selectedFilter = filterKey }
-                                .padding(horizontal = 10.dp, vertical = 6.dp)
+                                .padding(horizontal = 12.dp, vertical = 6.dp)
                         ) {
                             Row(verticalAlignment = Alignment.CenterVertically) {
                                 Icon(
@@ -250,8 +269,17 @@ fun TenantsScreen(
                             fontWeight = FontWeight.Bold,
                             color = if (isPersonalWorkspace) Color(0xFF0F766E) else NavyPrimary
                         )
+                        val assignedSummary = if (isPersonalWorkspace) {
+                            "Assigned: $totalAssignedShops Flats"
+                        } else if (totalFlats > 0 && totalShops > 0) {
+                            "Assigned: $totalShops Shops • $totalFlats Flats"
+                        } else if (totalFlats > 0) {
+                            "Assigned: $totalFlats Flats"
+                        } else {
+                            "Assigned: $totalShops Shops"
+                        }
                         Text(
-                            text = if (isPersonalWorkspace) "Assigned: $totalAssignedShops Flats" else "Assigned: $totalAssignedShops Shops",
+                            text = assignedSummary,
                             fontSize = 11.sp,
                             fontWeight = FontWeight.Medium,
                             color = MaterialTheme.colorScheme.onSurfaceVariant
@@ -469,15 +497,15 @@ fun TenantCardItem(
     onDelete: () -> Unit,
     modifier: Modifier = Modifier
 ) {
-    val individualShops = remember(tenant.shopNumber, tenant.isPersonal) {
+    val individualShops = remember(tenant.shopNumber, tenant.isFlat) {
         if (tenant.shopNumber.isBlank()) emptyList<String>()
         else tenant.shopNumber
             .split(",")
             .map { it.trim() }
             .filter { it.isNotEmpty() }
             .map { raw ->
-                if (tenant.isPersonal) {
-                    if (raw.startsWith("Flat", ignoreCase = true) || raw.startsWith("Unit", ignoreCase = true)) raw
+                if (tenant.isFlat) {
+                    if (raw.startsWith("Flat", ignoreCase = true) || raw.startsWith("Unit", ignoreCase = true) || raw.startsWith("Room", ignoreCase = true)) raw
                     else "Flat $raw"
                 } else {
                     if (raw.startsWith("Shop", ignoreCase = true)) raw else "Shop $raw"
@@ -559,7 +587,7 @@ fun TenantCardItem(
 
                 Spacer(modifier = Modifier.width(8.dp))
 
-                // Badges Row: Count + Cycle + (Optional Personal)
+                // Badges Row: Count + Cycle + (Optional Personal or Flat)
                 Row(
                     verticalAlignment = Alignment.CenterVertically,
                     horizontalArrangement = Arrangement.spacedBy(4.dp),
@@ -588,25 +616,49 @@ fun TenantCardItem(
                                 )
                             }
                         }
+                    } else if (tenant.isFlat) {
+                        Box(
+                            modifier = Modifier
+                                .clip(RoundedCornerShape(8.dp))
+                                .background(Color(0xFF0F766E).copy(alpha = 0.12f))
+                                .border(0.5.dp, Color(0xFF0F766E).copy(alpha = 0.35f), RoundedCornerShape(8.dp))
+                                .padding(horizontal = 7.dp, vertical = 4.dp)
+                        ) {
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                Icon(
+                                    imageVector = Icons.Filled.Apartment,
+                                    contentDescription = null,
+                                    tint = Color(0xFF0F766E),
+                                    modifier = Modifier.size(11.dp)
+                                )
+                                Spacer(modifier = Modifier.width(3.dp))
+                                Text(
+                                    text = "Flat",
+                                    color = Color(0xFF0F766E),
+                                    fontSize = 10.sp,
+                                    fontWeight = FontWeight.Bold
+                                )
+                            }
+                        }
                     }
 
                     // Total Shops/Flats Count Badge
                     Box(
                         modifier = Modifier
                             .clip(RoundedCornerShape(8.dp))
-                            .background(if (tenant.isPersonal) Color(0xFF0F766E) else NavyDark)
-                            .border(0.5.dp, if (tenant.isPersonal) Color(0xFF2DD4BF).copy(alpha = 0.5f) else GoldAccent.copy(alpha = 0.5f), RoundedCornerShape(8.dp))
+                            .background(if (tenant.isFlat) Color(0xFF0F766E) else NavyDark)
+                            .border(0.5.dp, if (tenant.isFlat) Color(0xFF2DD4BF).copy(alpha = 0.5f) else GoldAccent.copy(alpha = 0.5f), RoundedCornerShape(8.dp))
                             .padding(horizontal = 8.dp, vertical = 4.dp)
                     ) {
                         Row(verticalAlignment = Alignment.CenterVertically) {
                             Icon(
-                                imageVector = if (tenant.isPersonal) Icons.Filled.Apartment else Icons.Filled.Store,
+                                imageVector = if (tenant.isFlat) Icons.Filled.Apartment else Icons.Filled.Store,
                                 contentDescription = null,
-                                tint = if (tenant.isPersonal) Color.White else GoldAccent,
+                                tint = if (tenant.isFlat) Color.White else GoldAccent,
                                 modifier = Modifier.size(12.dp)
                             )
                             Spacer(modifier = Modifier.width(4.dp))
-                            val unitLabel = if (tenant.isPersonal) {
+                            val unitLabel = if (tenant.isFlat) {
                                 if (tenant.shopCount > 1) "${tenant.shopCount} Flats" else "1 Flat"
                             } else {
                                 if (tenant.shopCount > 1) "${tenant.shopCount} Shops" else "1 Shop"
@@ -668,7 +720,7 @@ fun TenantCardItem(
                         .border(0.5.dp, CardBorderLight, RoundedCornerShape(8.dp))
                         .padding(horizontal = 10.dp, vertical = 6.dp)
                 ) {
-                    val assignedHeader = if (tenant.isPersonal) {
+                    val assignedHeader = if (tenant.isFlat) {
                         if (individualShops.size > 1) "ASSIGNED FLATS (${individualShops.size}):" else "ASSIGNED FLAT:"
                     } else {
                         if (individualShops.size > 1) "ASSIGNED SHOPS (${individualShops.size}):" else "ASSIGNED SHOP:"
@@ -693,22 +745,22 @@ fun TenantCardItem(
                                     .background(Color.White)
                                     .border(
                                         0.5.dp,
-                                        if (tenant.isPersonal) Color(0xFF0F766E).copy(alpha = 0.35f) else NavyDark.copy(alpha = 0.25f),
+                                        if (tenant.isFlat) Color(0xFF0F766E).copy(alpha = 0.35f) else NavyDark.copy(alpha = 0.25f),
                                         RoundedCornerShape(6.dp)
                                     )
                                     .padding(horizontal = 7.dp, vertical = 3.dp)
                             ) {
                                 Row(verticalAlignment = Alignment.CenterVertically) {
                                     Icon(
-                                        imageVector = if (tenant.isPersonal) Icons.Filled.Apartment else Icons.Filled.Store,
+                                        imageVector = if (tenant.isFlat) Icons.Filled.Apartment else Icons.Filled.Store,
                                         contentDescription = null,
-                                        tint = if (tenant.isPersonal) Color(0xFF0F766E) else NavyPrimary,
+                                        tint = if (tenant.isFlat) Color(0xFF0F766E) else NavyPrimary,
                                         modifier = Modifier.size(11.dp)
                                     )
                                     Spacer(modifier = Modifier.width(3.dp))
                                     Text(
                                         text = unitName,
-                                        color = if (tenant.isPersonal) Color(0xFF0F766E) else NavyDark,
+                                        color = if (tenant.isFlat) Color(0xFF0F766E) else NavyDark,
                                         fontSize = 11.sp,
                                         fontWeight = FontWeight.Bold
                                     )
@@ -854,9 +906,9 @@ fun TenantCardItem(
 
             Spacer(modifier = Modifier.height(6.dp))
 
-            // ==================== ANNUAL PMC TAX & INCREMENT STRIP (COMMERCIAL) OR ELECTRICITY & RENT BREAKUP (PERSONAL) ====================
-            if (tenant.isPersonal) {
-                // Personal flat strip: Electricity bill and total combined monthly due
+            // ==================== ANNUAL PMC TAX & INCREMENT STRIP (COMMERCIAL) OR ELECTRICITY & RENT BREAKUP (FLAT) ====================
+            if (tenant.isFlat) {
+                // Flat strip: Electricity bill and total combined monthly due
                 if (tenant.electricityBill > 0) {
                     Row(
                         modifier = Modifier

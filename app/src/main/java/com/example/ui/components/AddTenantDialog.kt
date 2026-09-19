@@ -64,6 +64,7 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.material.icons.filled.Apartment
 import androidx.compose.material.icons.filled.Home
 import androidx.compose.material.icons.filled.Lock
+import androidx.compose.material3.FilterChip
 import androidx.compose.material3.Switch
 import androidx.compose.material3.SwitchDefaults
 import androidx.compose.ui.unit.dp
@@ -107,6 +108,17 @@ fun AddTenantDialog(
     var isPersonal by remember {
         mutableStateOf(
             initialTenant?.isPersonal ?: (initialWorkspaceMode == com.example.model.AppWorkspaceMode.PRIVATE_PERSONAL)
+        )
+    }
+    var isFlatType by remember {
+        mutableStateOf(
+            if (initialTenant != null) {
+                initialTenant.shopNumber.startsWith("Flat", ignoreCase = true) ||
+                initialTenant.electricityBill > 0 ||
+                initialTenant.isPersonal
+            } else {
+                initialWorkspaceMode == com.example.model.AppWorkspaceMode.PRIVATE_PERSONAL
+            }
         )
     }
     var name by remember { mutableStateOf(initialTenant?.name ?: "") }
@@ -208,9 +220,78 @@ fun AddTenantDialog(
                     }
                 }
 
-                Spacer(modifier = Modifier.height(14.dp))
+                Spacer(modifier = Modifier.height(10.dp))
 
-                // ==================== PROPERTY TYPE SELECTOR (COMMERCIAL VS PERSONAL) ====================
+                // Workspace Indicator Banner (Automatic based on active mode)
+                Card(
+                    modifier = Modifier.fillMaxWidth(),
+                    shape = RoundedCornerShape(12.dp),
+                    colors = CardDefaults.cardColors(
+                        containerColor = if (isPersonal) Color(0xFF0F766E).copy(alpha = 0.08f) else NavyPrimary.copy(alpha = 0.08f)
+                    ),
+                    border = BorderStroke(
+                        1.dp,
+                        if (isPersonal) Color(0xFF0F766E).copy(alpha = 0.4f) else NavyPrimary.copy(alpha = 0.4f)
+                    )
+                ) {
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(10.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.SpaceBetween
+                    ) {
+                        Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.weight(1f)) {
+                            Box(
+                                modifier = Modifier
+                                    .size(28.dp)
+                                    .clip(CircleShape)
+                                    .background(if (isPersonal) Color(0xFF0F766E) else NavyPrimary),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Icon(
+                                    imageVector = if (isPersonal) Icons.Filled.Apartment else Icons.Filled.Store,
+                                    contentDescription = null,
+                                    tint = Color.White,
+                                    modifier = Modifier.size(15.dp)
+                                )
+                            }
+                            Spacer(modifier = Modifier.width(8.dp))
+                            Column {
+                                Text(
+                                    text = if (isPersonal) "Personal Workspace" else "Naseeb Lal Market",
+                                    fontWeight = FontWeight.Bold,
+                                    fontSize = 12.sp,
+                                    color = if (isPersonal) Color(0xFF0F766E) else NavyPrimary
+                                )
+                                Text(
+                                    text = if (isPersonal) "Tenant will be saved under Personal Property" else "Tenant will be saved under Naseeb Lal Market",
+                                    fontSize = 10.sp,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                            }
+                        }
+
+                        // Allow workspace switch if editing or authorized admin
+                        if (canManagePersonalTenants || initialTenant != null) {
+                            FilterChip(
+                                selected = isPersonal,
+                                onClick = { isPersonal = !isPersonal },
+                                label = {
+                                    Text(
+                                        text = if (isPersonal) "Switch to Market" else "Switch to Personal",
+                                        fontSize = 10.sp
+                                    )
+                                },
+                                shape = RoundedCornerShape(8.dp)
+                            )
+                        }
+                    }
+                }
+
+                Spacer(modifier = Modifier.height(12.dp))
+
+                // ==================== UNIT TYPE SELECTOR (SHOP VS FLAT) ====================
                 Row(
                     modifier = Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.spacedBy(8.dp)
@@ -221,17 +302,17 @@ fun AddTenantDialog(
                             .weight(1f)
                             .clip(RoundedCornerShape(12.dp))
                             .clickable {
-                                isPersonal = false
+                                isFlatType = false
                                 hasError = false
                             }
                             .testTag("select_commercial_type"),
                         shape = RoundedCornerShape(12.dp),
                         colors = CardDefaults.cardColors(
-                            containerColor = if (!isPersonal) NavyPrimary.copy(alpha = 0.08f) else MaterialTheme.colorScheme.surface
+                            containerColor = if (!isFlatType) NavyPrimary.copy(alpha = 0.08f) else MaterialTheme.colorScheme.surface
                         ),
                         border = BorderStroke(
-                            width = if (!isPersonal) 2.dp else 1.dp,
-                            color = if (!isPersonal) NavyPrimary else MaterialTheme.colorScheme.outline.copy(alpha = 0.25f)
+                            width = if (!isFlatType) 2.dp else 1.dp,
+                            color = if (!isFlatType) NavyPrimary else MaterialTheme.colorScheme.outline.copy(alpha = 0.25f)
                         )
                     ) {
                         Column(
@@ -245,13 +326,13 @@ fun AddTenantDialog(
                                 modifier = Modifier
                                     .size(34.dp)
                                     .clip(CircleShape)
-                                    .background(if (!isPersonal) NavyPrimary else MaterialTheme.colorScheme.surfaceVariant),
+                                    .background(if (!isFlatType) NavyPrimary else MaterialTheme.colorScheme.surfaceVariant),
                                 contentAlignment = Alignment.Center
                             ) {
                                 Icon(
                                     imageVector = Icons.Filled.Store,
                                     contentDescription = null,
-                                    tint = if (!isPersonal) Color.White else MaterialTheme.colorScheme.onSurfaceVariant,
+                                    tint = if (!isFlatType) Color.White else MaterialTheme.colorScheme.onSurfaceVariant,
                                     modifier = Modifier.size(18.dp)
                                 )
                             }
@@ -259,37 +340,37 @@ fun AddTenantDialog(
                             Text(
                                 text = "Commercial Shop",
                                 fontSize = 12.sp,
-                                fontWeight = if (!isPersonal) FontWeight.Bold else FontWeight.Medium,
-                                color = if (!isPersonal) NavyPrimary else MaterialTheme.colorScheme.onSurface,
+                                fontWeight = if (!isFlatType) FontWeight.Bold else FontWeight.Medium,
+                                color = if (!isFlatType) NavyPrimary else MaterialTheme.colorScheme.onSurface,
                                 textAlign = TextAlign.Center
                             )
                             Text(
                                 text = "Market / Dukan",
                                 fontSize = 10.sp,
-                                color = if (!isPersonal) NavyPrimary.copy(alpha = 0.8f) else MaterialTheme.colorScheme.onSurfaceVariant,
+                                color = if (!isFlatType) NavyPrimary.copy(alpha = 0.8f) else MaterialTheme.colorScheme.onSurfaceVariant,
                                 textAlign = TextAlign.Center
                             )
                         }
                     }
 
-                    // 🏢 Personal Flat / Residential Card
+                    // 🏢 Flat / Residential Unit Card
                     Card(
                         modifier = Modifier
                             .weight(1f)
                             .clip(RoundedCornerShape(12.dp))
                             .clickable {
-                                isPersonal = true
+                                isFlatType = true
                                 numberOfShops = 1
                                 hasError = false
                             }
                             .testTag("select_personal_type"),
                         shape = RoundedCornerShape(12.dp),
                         colors = CardDefaults.cardColors(
-                            containerColor = if (isPersonal) Color(0xFF0F766E).copy(alpha = 0.08f) else MaterialTheme.colorScheme.surface
+                            containerColor = if (isFlatType) Color(0xFF0F766E).copy(alpha = 0.08f) else MaterialTheme.colorScheme.surface
                         ),
                         border = BorderStroke(
-                            width = if (isPersonal) 2.dp else 1.dp,
-                            color = if (isPersonal) Color(0xFF0F766E) else MaterialTheme.colorScheme.outline.copy(alpha = 0.25f)
+                            width = if (isFlatType) 2.dp else 1.dp,
+                            color = if (isFlatType) Color(0xFF0F766E) else MaterialTheme.colorScheme.outline.copy(alpha = 0.25f)
                         )
                     ) {
                         Column(
@@ -304,7 +385,7 @@ fun AddTenantDialog(
                                     .size(34.dp)
                                     .clip(CircleShape)
                                     .background(
-                                        if (isPersonal) Color(0xFF0F766E)
+                                        if (isFlatType) Color(0xFF0F766E)
                                         else MaterialTheme.colorScheme.surfaceVariant
                                     ),
                                 contentAlignment = Alignment.Center
@@ -312,22 +393,22 @@ fun AddTenantDialog(
                                 Icon(
                                     imageVector = Icons.Filled.Apartment,
                                     contentDescription = null,
-                                    tint = if (isPersonal) Color.White else MaterialTheme.colorScheme.onSurfaceVariant,
+                                    tint = if (isFlatType) Color.White else MaterialTheme.colorScheme.onSurfaceVariant,
                                     modifier = Modifier.size(18.dp)
                                 )
                             }
                             Spacer(modifier = Modifier.height(6.dp))
                             Text(
-                                text = "Personal Flat",
+                                text = "Flat / Unit",
                                 fontSize = 12.sp,
-                                fontWeight = if (isPersonal) FontWeight.Bold else FontWeight.Medium,
-                                color = if (isPersonal) Color(0xFF0F766E) else MaterialTheme.colorScheme.onSurface,
+                                fontWeight = if (isFlatType) FontWeight.Bold else FontWeight.Medium,
+                                color = if (isFlatType) Color(0xFF0F766E) else MaterialTheme.colorScheme.onSurface,
                                 textAlign = TextAlign.Center
                             )
                             Text(
-                                text = "Residential / Unit",
+                                text = "Residential / Room",
                                 fontSize = 10.sp,
-                                color = if (isPersonal) Color(0xFF0F766E).copy(alpha = 0.8f) else MaterialTheme.colorScheme.onSurfaceVariant,
+                                color = if (isFlatType) Color(0xFF0F766E).copy(alpha = 0.8f) else MaterialTheme.colorScheme.onSurfaceVariant,
                                 textAlign = TextAlign.Center
                             )
                         }
@@ -336,7 +417,7 @@ fun AddTenantDialog(
 
                 Spacer(modifier = Modifier.height(14.dp))
 
-                if (!isPersonal) {
+                if (!isFlatType) {
                     // ==================== COMMERCIAL MARKET SHOP FORM ====================
                     // Full Name
                     OutlinedTextField(
@@ -878,13 +959,17 @@ fun AddTenantDialog(
                             .testTag("tenant_notes_input")
                     )
                 } else {
-                    // ==================== PERSONAL FLAT / RESIDENTIAL FORM ====================
-                    // Clean single-column layout without heavy market fields
+                    // ==================== RESIDENTIAL FLAT / UNIT FORM ====================
                     Card(
                         modifier = Modifier.fillMaxWidth(),
                         shape = RoundedCornerShape(12.dp),
-                        colors = CardDefaults.cardColors(containerColor = Color(0xFF0F766E).copy(alpha = 0.08f)),
-                        border = BorderStroke(1.dp, Color(0xFF0F766E).copy(alpha = 0.3f))
+                        colors = CardDefaults.cardColors(
+                            containerColor = if (isPersonal) Color(0xFF0F766E).copy(alpha = 0.08f) else NavyPrimary.copy(alpha = 0.08f)
+                        ),
+                        border = BorderStroke(
+                            1.dp,
+                            if (isPersonal) Color(0xFF0F766E).copy(alpha = 0.3f) else NavyPrimary.copy(alpha = 0.3f)
+                        )
                     ) {
                         Row(
                             modifier = Modifier
@@ -895,19 +980,19 @@ fun AddTenantDialog(
                             Icon(
                                 imageVector = Icons.Filled.Apartment,
                                 contentDescription = null,
-                                tint = Color(0xFF0F766E),
+                                tint = if (isPersonal) Color(0xFF0F766E) else NavyPrimary,
                                 modifier = Modifier.size(20.dp)
                             )
                             Spacer(modifier = Modifier.width(8.dp))
                             Column {
                                 Text(
-                                    text = "Residential Flat / Room Tenant",
+                                    text = if (isPersonal) "Personal Residential Flat / Room Tenant" else "Naseeb Lal Market • Flat / Unit Tenant",
                                     fontWeight = FontWeight.Bold,
                                     fontSize = 12.5.sp,
-                                    color = Color(0xFF0F766E)
+                                    color = if (isPersonal) Color(0xFF0F766E) else NavyPrimary
                                 )
                                 Text(
-                                    text = "Private to Admin. Market taxes, shop count & increments do not apply.",
+                                    text = if (isPersonal) "Private property tenant. Saved in Personal Workspace." else "Market flat tenant. Saved in Naseeb Lal Market.",
                                     fontSize = 10.5.sp,
                                     color = MaterialTheme.colorScheme.onSurfaceVariant
                                 )
@@ -976,14 +1061,14 @@ fun AddTenantDialog(
                             .testTag("tenant_shop_input")
                     )
 
-                    // Quick select from personal properties inventory if any
-                    val personalProperties = remember(availableShops) {
-                        availableShops.filter { it.isPersonal }
+                    // Quick select from properties inventory if any
+                    val matchingProperties = remember(availableShops, isPersonal) {
+                        availableShops.filter { it.isPersonal == isPersonal }
                     }
-                    if (personalProperties.isNotEmpty()) {
+                    if (matchingProperties.isNotEmpty()) {
                         Spacer(modifier = Modifier.height(4.dp))
                         Text(
-                            text = "Quick select from personal inventory:",
+                            text = if (isPersonal) "Quick select from personal inventory:" else "Quick select from market inventory:",
                             fontSize = 11.sp,
                             color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
@@ -992,18 +1077,18 @@ fun AddTenantDialog(
                             modifier = Modifier.fillMaxWidth(),
                             horizontalArrangement = Arrangement.spacedBy(6.dp)
                         ) {
-                            personalProperties.take(4).forEach { prop ->
+                            matchingProperties.take(4).forEach { prop ->
                                 val isSelected = shopNumber == prop.shopNumber
                                 Box(
                                     modifier = Modifier
                                         .clip(RoundedCornerShape(6.dp))
                                         .background(
-                                            if (isSelected) Color(0xFF0F766E)
+                                            if (isSelected) (if (isPersonal) Color(0xFF0F766E) else NavyPrimary)
                                             else MaterialTheme.colorScheme.surface
                                         )
                                         .border(
                                             1.dp,
-                                            if (isSelected) Color(0xFF0F766E) else MaterialTheme.colorScheme.outline.copy(alpha = 0.3f),
+                                            if (isSelected) (if (isPersonal) Color(0xFF0F766E) else NavyPrimary) else MaterialTheme.colorScheme.outline.copy(alpha = 0.3f),
                                             RoundedCornerShape(6.dp)
                                         )
                                         .clickable {
@@ -1228,17 +1313,29 @@ fun AddTenantDialog(
                         if (name.isBlank() || phone.isBlank() || shopNumber.isBlank() || rentVal <= 0.0) {
                             hasError = true
                         } else {
-                            val pct = if (isPersonal) 0.0 else (incrementPercent.toDoubleOrNull() ?: 5.0)
+                            val pct = if (isFlatType && isPersonal) 0.0 else (incrementPercent.toDoubleOrNull() ?: 5.0)
                             val dues = previousDues.toDoubleOrNull() ?: 0.0
-                            val shopsCount = if (isPersonal) 1 else numberOfShops.coerceAtLeast(1)
-                            val incYears = if (isPersonal) 1 else incrementYears.coerceAtLeast(1)
-                            val bName = if (isPersonal) "" else businessName.trim()
-                            val elecVal = if (isPersonal) (electricityBill.toDoubleOrNull() ?: 0.0) else 0.0
+                            val shopsCount = if (isFlatType) 1 else numberOfShops.coerceAtLeast(1)
+                            val incYears = if (isFlatType && isPersonal) 1 else incrementYears.coerceAtLeast(1)
+                            val bName = if (isFlatType) "" else businessName.trim()
+                            val elecVal = electricityBill.toDoubleOrNull() ?: 0.0
+                            val rawShop = shopNumber.trim()
+                            val formattedShopNumber = if (isFlatType) {
+                                if (rawShop.startsWith("Flat", ignoreCase = true) ||
+                                    rawShop.startsWith("Unit", ignoreCase = true) ||
+                                    rawShop.startsWith("Room", ignoreCase = true)) {
+                                    rawShop
+                                } else {
+                                    "Flat $rawShop"
+                                }
+                            } else {
+                                rawShop
+                            }
                             onSave(
                                 name.trim(),
                                 bName,
                                 phone.trim(),
-                                shopNumber.trim(),
+                                formattedShopNumber,
                                 shopsCount,
                                 advanceDeposit.toDoubleOrNull() ?: 0.0,
                                 rentVal,
@@ -1265,9 +1362,13 @@ fun AddTenantDialog(
                 ) {
                     Text(
                         text = if (initialTenant == null) {
-                            if (isPersonal) "SAVE PERSONAL TENANT" else "SAVE TENANT"
+                            if (isFlatType) {
+                                if (isPersonal) "SAVE PERSONAL FLAT" else "SAVE MARKET FLAT"
+                            } else {
+                                if (isPersonal) "SAVE PERSONAL SHOP" else "SAVE MARKET SHOP"
+                            }
                         } else {
-                            if (isPersonal) "UPDATE PERSONAL TENANT" else "UPDATE TENANT"
+                            if (isFlatType) "UPDATE FLAT TENANT" else "UPDATE SHOP TENANT"
                         },
                         fontWeight = FontWeight.Bold,
                         fontSize = 13.sp

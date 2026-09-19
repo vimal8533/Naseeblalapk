@@ -78,4 +78,12 @@ data class Tenant(
             12 -> "Yearly"
             else -> "Monthly"
         }
+
+    val isFlat: Boolean
+        get() = isPersonal ||
+                shopNumber.startsWith("Flat", ignoreCase = true) ||
+                shopNumber.startsWith("Unit", ignoreCase = true) ||
+                shopNumber.startsWith("Room", ignoreCase = true) ||
+                electricityBill > 0.0 ||
+                lastMeterReading > 0.0
 }

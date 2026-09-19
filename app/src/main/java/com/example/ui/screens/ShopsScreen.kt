@@ -323,19 +323,24 @@ fun ShopCardItem(
                     Box(
                         modifier = Modifier
                             .clip(RoundedCornerShape(6.dp))
-                            .background(if (shop.isPersonal) Color(0xFF0F766E) else NavyDark)
+                            .background(if (shop.isFlat) Color(0xFF0F766E) else NavyDark)
                             .padding(horizontal = 8.dp, vertical = 3.dp)
                     ) {
                         Text(
                             text = shop.shopNumber,
                             fontWeight = FontWeight.ExtraBold,
                             fontSize = 12.sp,
-                            color = if (shop.isPersonal) Color.White else GoldAccent
+                            color = if (shop.isFlat) Color.White else GoldAccent
                         )
                     }
                     Spacer(modifier = Modifier.width(8.dp))
+                    val shopDisplayName = if (shop.isFlat) {
+                        if (shop.shopNumber.startsWith("Flat", ignoreCase = true) || shop.shopNumber.startsWith("Unit", ignoreCase = true) || shop.shopNumber.startsWith("Room", ignoreCase = true)) shop.shopNumber else "Flat ${shop.shopNumber}"
+                    } else {
+                        if (shop.shopNumber.startsWith("Shop", ignoreCase = true)) shop.shopNumber else "Shop ${shop.shopNumber}"
+                    }
                     Text(
-                        text = if (shop.isPersonal) "Flat ${shop.shopNumber}" else "Shop ${shop.shopNumber}",
+                        text = shopDisplayName,
                         fontWeight = FontWeight.Bold,
                         fontSize = 15.sp,
                         color = NavyDark
@@ -351,6 +356,22 @@ fun ShopCardItem(
                         ) {
                             Text(
                                 text = "Personal",
+                                color = Color(0xFF0F766E),
+                                fontSize = 9.5.sp,
+                                fontWeight = FontWeight.Bold
+                            )
+                        }
+                    } else if (shop.isFlat) {
+                        Spacer(modifier = Modifier.width(6.dp))
+                        Box(
+                            modifier = Modifier
+                                .clip(RoundedCornerShape(8.dp))
+                                .background(Color(0xFF0F766E).copy(alpha = 0.12f))
+                                .border(0.5.dp, Color(0xFF0F766E).copy(alpha = 0.3f), RoundedCornerShape(8.dp))
+                                .padding(horizontal = 6.dp, vertical = 2.dp)
+                        ) {
+                            Text(
+                                text = "Flat",
                                 color = Color(0xFF0F766E),
                                 fontSize = 9.5.sp,
                                 fontWeight = FontWeight.Bold

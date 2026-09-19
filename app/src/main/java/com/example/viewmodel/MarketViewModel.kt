@@ -7,6 +7,7 @@ import androidx.lifecycle.viewModelScope
 import com.example.data.FirebaseRealtimeSync
 import com.example.data.SyncStatus
 import com.example.model.ActivityLog
+import com.example.model.AppUpdateInfo
 import com.example.model.AppWorkspaceMode
 import com.example.model.MonthlyReminderRecord
 import com.example.model.RentRecord
@@ -75,6 +76,15 @@ class MarketViewModel(application: Application) : AndroidViewModel(application) 
     val syncStatus: StateFlow<SyncStatus> = sync.syncStatus
     val lastSyncedAt: StateFlow<Long> = sync.lastSyncedAt
     val isLoading: StateFlow<Boolean> = sync.isInitialLoading
+    val appUpdateInfo: StateFlow<AppUpdateInfo?> = sync.appUpdateInfo
+
+    fun publishAppUpdate(info: AppUpdateInfo, onComplete: ((Boolean) -> Unit)? = null) {
+        sync.publishAppUpdateInfo(info, onComplete)
+    }
+
+    fun checkForUpdates(onResult: ((AppUpdateInfo?) -> Unit)? = null) {
+        sync.fetchLatestAppUpdateInfo(onResult)
+    }
 
     private var presenceJob: Job? = null
 
@@ -538,7 +548,12 @@ class MarketViewModel(application: Application) : AndroidViewModel(application) 
 
             val existingTenant = rawTenants.value.find { it.id == id }
             val effectiveIsPersonal = if (existingTenant != null) existingTenant.isPersonal else isPersonal
-            val effectiveElectricityBill = if (effectiveIsPersonal) electricityBill.coerceAtLeast(0.0) else 0.0
+            val isFlat = effectiveIsPersonal ||
+                         cleanShopNumber.startsWith("Flat", ignoreCase = true) ||
+                         cleanShopNumber.startsWith("Unit", ignoreCase = true) ||
+                         cleanShopNumber.startsWith("Room", ignoreCase = true) ||
+                         electricityBill > 0.0
+            val effectiveElectricityBill = if (isFlat) electricityBill.coerceAtLeast(0.0) else 0.0
             val effectiveOwnerId = if (existingTenant != null) {
                 existingTenant.ownerSubAdminId
             } else if (isPersonal) {
@@ -547,9 +562,9 @@ class MarketViewModel(application: Application) : AndroidViewModel(application) 
                 ""
             }
 
-            // Annual PMC Tax rule: ₹1,000 per shop billed ONLY ONCE A YEAR in anniversary month (Market shops only, 0 for personal flat)
+            // Annual PMC Tax rule: ₹1,000 per shop billed ONLY ONCE A YEAR in anniversary month (Market shops only, 0 for flats)
             val isAnniversaryMonth = PmcTaxHelper.isPmcTaxDueInMonth(joiningDate, selectedMonth.value, selectedYear.value)
-            val pmcTax = if (!effectiveIsPersonal && isAnniversaryMonth) PmcTaxHelper.getPmcTaxForShops(validNumberOfShops) else 0.0
+            val pmcTax = if (!isFlat && isAnniversaryMonth) PmcTaxHelper.getPmcTaxForShops(validNumberOfShops) else 0.0
 
             val isNewTenant = existingId == null
             val modifierName = currentUser.value?.let {
@@ -631,6 +646,9 @@ class MarketViewModel(application: Application) : AndroidViewModel(application) 
                     amountPaid = 0.0,
                     pmcTax = pmcTax,
                     electricityBill = effectiveElectricityBill,
+                    prevMeterReading = if (isFlat) (existingTenant?.lastMeterReading ?: 0.0) else 0.0,
+                    currentMeterReading = 0.0,
+                    electricityRatePerUnit = if (isFlat) (if ((existingTenant?.electricityRatePerUnit ?: 0.0) > 0.0) existingTenant!!.electricityRatePerUnit else 10.0) else 0.0,
                     status = initialStatus,
                     dueDate = "10th ${selectedMonth.value}",
                     paidDate = "",
@@ -901,18 +919,19 @@ class MarketViewModel(application: Application) : AndroidViewModel(application) 
                 }
                 if (!exists) {
                     val isAnniversaryMonth = PmcTaxHelper.isPmcTaxDueInMonth(tenant.joiningDate, month, year)
-                    val pmcTax = if (!tenant.isPersonal && isAnniversaryMonth) PmcTaxHelper.getPmcTaxForShops(tenant.shopCount) else 0.0
-                    val electricityBill = if (tenant.isPersonal) tenant.electricityBill else 0.0
+                    val isFlat = tenant.isFlat
+                    val pmcTax = if (!isFlat && isAnniversaryMonth) PmcTaxHelper.getPmcTaxForShops(tenant.shopCount) else 0.0
+                    val electricityBill = if (isFlat) tenant.electricityBill else 0.0
 
-                    // Find previous meter reading for personal flat
-                    val prevReading = if (tenant.isPersonal) {
+                    // Find previous meter reading for flat
+                    val prevReading = if (isFlat) {
                         val prevRentWithReading = rawRents.value
                             .filter { it.tenantId == tenant.id && it.currentMeterReading > 0.0 }
                             .maxByOrNull { it.year * 100 + BillingCycleHelper.monthToOrder(it.month) }
                         prevRentWithReading?.currentMeterReading ?: tenant.lastMeterReading
                     } else 0.0
 
-                    val ratePerUnit = if (tenant.isPersonal) {
+                    val ratePerUnit = if (isFlat) {
                         if (tenant.electricityRatePerUnit > 0.0) tenant.electricityRatePerUnit else 10.0
                     } else 0.0
 

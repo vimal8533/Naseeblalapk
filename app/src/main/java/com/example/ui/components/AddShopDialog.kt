@@ -42,9 +42,11 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.filled.Apartment
 import androidx.compose.material.icons.filled.Home
+import androidx.compose.material3.FilterChip
 import androidx.compose.material3.Switch
 import androidx.compose.material3.SwitchDefaults
 import androidx.compose.ui.draw.clip
@@ -74,6 +76,13 @@ fun AddShopDialog(
     var isPersonal by remember {
         mutableStateOf(
             initialShop?.isPersonal ?: (initialWorkspaceMode == com.example.model.AppWorkspaceMode.PRIVATE_PERSONAL)
+        )
+    }
+    var isFlatType by remember {
+        mutableStateOf(
+            initialShop?.propertyType?.equals("FLAT", ignoreCase = true) == true ||
+            initialShop?.shopNumber?.startsWith("Flat", ignoreCase = true) == true ||
+            (initialShop == null && initialWorkspaceMode == com.example.model.AppWorkspaceMode.PRIVATE_PERSONAL)
         )
     }
     var shopNumber by remember { mutableStateOf(initialShop?.shopNumber ?: "") }
@@ -106,7 +115,11 @@ fun AddShopDialog(
                     verticalAlignment = Alignment.CenterVertically
                 ) {
                     Text(
-                        text = if (initialShop == null) "Add New Shop" else "Edit Shop Details",
+                        text = if (initialShop == null) {
+                            if (isFlatType) "Add New Flat" else "Add New Shop"
+                        } else {
+                            if (isFlatType) "Edit Flat Details" else "Edit Shop Details"
+                        },
                         style = MaterialTheme.typography.titleLarge,
                         fontWeight = FontWeight.Bold,
                         color = MaterialTheme.colorScheme.primary
@@ -116,78 +129,182 @@ fun AddShopDialog(
                     }
                 }
 
-                Spacer(modifier = Modifier.height(14.dp))
+                Spacer(modifier = Modifier.height(10.dp))
 
-                // Optional Personal / Flat toggle (Only shown if authorized sub-admin or master admin)
-                if (canManagePersonalTenants || initialShop?.isPersonal == true) {
-                    Card(
-                        modifier = Modifier.fillMaxWidth(),
-                        shape = RoundedCornerShape(12.dp),
-                        colors = CardDefaults.cardColors(
-                            containerColor = if (isPersonal) Color(0xFF0F766E).copy(alpha = 0.08f) else MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.4f)
-                        ),
-                        border = androidx.compose.foundation.BorderStroke(
-                            1.dp,
-                            if (isPersonal) Color(0xFF0F766E) else MaterialTheme.colorScheme.outline.copy(alpha = 0.2f)
-                        )
+                // Workspace Indicator Banner (Automatic based on active mode)
+                Card(
+                    modifier = Modifier.fillMaxWidth(),
+                    shape = RoundedCornerShape(12.dp),
+                    colors = CardDefaults.cardColors(
+                        containerColor = if (isPersonal) Color(0xFF0F766E).copy(alpha = 0.08f) else MaterialTheme.colorScheme.primary.copy(alpha = 0.08f)
+                    ),
+                    border = androidx.compose.foundation.BorderStroke(
+                        1.dp,
+                        if (isPersonal) Color(0xFF0F766E).copy(alpha = 0.4f) else MaterialTheme.colorScheme.primary.copy(alpha = 0.4f)
+                    )
+                ) {
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(10.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.SpaceBetween
                     ) {
-                        Row(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .padding(12.dp),
-                            verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.SpaceBetween
-                        ) {
-                            Row(
-                                verticalAlignment = Alignment.CenterVertically,
-                                modifier = Modifier.weight(1f)
+                        Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.weight(1f)) {
+                            Box(
+                                modifier = Modifier
+                                    .size(28.dp)
+                                    .clip(CircleShape)
+                                    .background(if (isPersonal) Color(0xFF0F766E) else MaterialTheme.colorScheme.primary),
+                                contentAlignment = Alignment.Center
                             ) {
-                                Box(
-                                    modifier = Modifier
-                                        .size(34.dp)
-                                        .clip(CircleShape)
-                                        .background(if (isPersonal) Color(0xFF0F766E) else MaterialTheme.colorScheme.surfaceVariant),
-                                    contentAlignment = Alignment.Center
-                                ) {
-                                    Icon(
-                                        imageVector = if (isPersonal) Icons.Filled.Apartment else Icons.Filled.Store,
-                                        contentDescription = null,
-                                        tint = if (isPersonal) Color.White else MaterialTheme.colorScheme.onSurfaceVariant,
-                                        modifier = Modifier.size(18.dp)
-                                    )
-                                }
-                                Spacer(modifier = Modifier.width(10.dp))
-                                Column {
-                                    Text(
-                                        text = if (isPersonal) "Personal Property / Flat" else "Market Commercial Shop",
-                                        fontWeight = FontWeight.Bold,
-                                        fontSize = 13.sp,
-                                        color = if (isPersonal) Color(0xFF0F766E) else MaterialTheme.colorScheme.onSurface
-                                    )
-                                    Text(
-                                        text = if (isPersonal)
-                                            "Visible only to you and Master Admin."
-                                        else
-                                            "Standard market property (shared with staff)",
-                                        fontSize = 10.5.sp,
-                                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                        lineHeight = 14.sp
-                                    )
-                                }
+                                Icon(
+                                    imageVector = if (isPersonal) Icons.Filled.Apartment else Icons.Filled.Store,
+                                    contentDescription = null,
+                                    tint = Color.White,
+                                    modifier = Modifier.size(15.dp)
+                                )
                             }
-                            Switch(
-                                checked = isPersonal,
-                                onCheckedChange = { isPersonal = it },
-                                colors = SwitchDefaults.colors(
-                                    checkedThumbColor = Color.White,
-                                    checkedTrackColor = Color(0xFF0F766E)
-                                ),
-                                modifier = Modifier.testTag("personal_shop_switch")
+                            Spacer(modifier = Modifier.width(8.dp))
+                            Column {
+                                Text(
+                                    text = if (isPersonal) "Personal Workspace" else "Naseeb Lal Market",
+                                    fontWeight = FontWeight.Bold,
+                                    fontSize = 12.sp,
+                                    color = if (isPersonal) Color(0xFF0F766E) else MaterialTheme.colorScheme.primary
+                                )
+                                Text(
+                                    text = if (isPersonal) "Will be saved under Personal Property" else "Will be saved under Naseeb Lal Market",
+                                    fontSize = 10.sp,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                            }
+                        }
+
+                        // Allow workspace switch if editing or authorized admin
+                        if (canManagePersonalTenants || initialShop != null) {
+                            FilterChip(
+                                selected = isPersonal,
+                                onClick = { isPersonal = !isPersonal },
+                                label = {
+                                    Text(
+                                        text = if (isPersonal) "Switch to Market" else "Switch to Personal",
+                                        fontSize = 10.sp
+                                    )
+                                },
+                                shape = RoundedCornerShape(8.dp)
                             )
                         }
                     }
-                    Spacer(modifier = Modifier.height(10.dp))
                 }
+
+                Spacer(modifier = Modifier.height(12.dp))
+
+                // Unit Type Selector (Shop vs Flat) - Does NOT alter workspace!
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    // 🏬 Commercial Shop Card
+                    Card(
+                        modifier = Modifier
+                            .weight(1f)
+                            .clip(RoundedCornerShape(12.dp))
+                            .clickable {
+                                isFlatType = false
+                                hasError = false
+                            },
+                        shape = RoundedCornerShape(12.dp),
+                        colors = CardDefaults.cardColors(
+                            containerColor = if (!isFlatType) MaterialTheme.colorScheme.primary.copy(alpha = 0.08f) else MaterialTheme.colorScheme.surface
+                        ),
+                        border = androidx.compose.foundation.BorderStroke(
+                            width = if (!isFlatType) 2.dp else 1.dp,
+                            color = if (!isFlatType) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.outline.copy(alpha = 0.25f)
+                        )
+                    ) {
+                        Column(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(vertical = 10.dp, horizontal = 8.dp),
+                            horizontalAlignment = Alignment.CenterHorizontally,
+                            verticalArrangement = Arrangement.Center
+                        ) {
+                            Box(
+                                modifier = Modifier
+                                    .size(32.dp)
+                                    .clip(CircleShape)
+                                    .background(if (!isFlatType) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.surfaceVariant),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Filled.Store,
+                                    contentDescription = null,
+                                    tint = if (!isFlatType) Color.White else MaterialTheme.colorScheme.onSurfaceVariant,
+                                    modifier = Modifier.size(16.dp)
+                                )
+                            }
+                            Spacer(modifier = Modifier.height(4.dp))
+                            Text(
+                                text = "Shop (Dukan)",
+                                fontSize = 11.5.sp,
+                                fontWeight = if (!isFlatType) FontWeight.Bold else FontWeight.Medium,
+                                color = if (!isFlatType) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface
+                            )
+                        }
+                    }
+
+                    // 🏢 Flat / Unit Card
+                    Card(
+                        modifier = Modifier
+                            .weight(1f)
+                            .clip(RoundedCornerShape(12.dp))
+                            .clickable {
+                                isFlatType = true
+                                hasError = false
+                            },
+                        shape = RoundedCornerShape(12.dp),
+                        colors = CardDefaults.cardColors(
+                            containerColor = if (isFlatType) Color(0xFF0F766E).copy(alpha = 0.08f) else MaterialTheme.colorScheme.surface
+                        ),
+                        border = androidx.compose.foundation.BorderStroke(
+                            width = if (isFlatType) 2.dp else 1.dp,
+                            color = if (isFlatType) Color(0xFF0F766E) else MaterialTheme.colorScheme.outline.copy(alpha = 0.25f)
+                        )
+                    ) {
+                        Column(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(vertical = 10.dp, horizontal = 8.dp),
+                            horizontalAlignment = Alignment.CenterHorizontally,
+                            verticalArrangement = Arrangement.Center
+                        ) {
+                            Box(
+                                modifier = Modifier
+                                    .size(32.dp)
+                                    .clip(CircleShape)
+                                    .background(if (isFlatType) Color(0xFF0F766E) else MaterialTheme.colorScheme.surfaceVariant),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Filled.Apartment,
+                                    contentDescription = null,
+                                    tint = if (isFlatType) Color.White else MaterialTheme.colorScheme.onSurfaceVariant,
+                                    modifier = Modifier.size(16.dp)
+                                )
+                            }
+                            Spacer(modifier = Modifier.height(4.dp))
+                            Text(
+                                text = "Flat (Apartment)",
+                                fontSize = 11.5.sp,
+                                fontWeight = if (isFlatType) FontWeight.Bold else FontWeight.Medium,
+                                color = if (isFlatType) Color(0xFF0F766E) else MaterialTheme.colorScheme.onSurface
+                            )
+                        }
+                    }
+                }
+
+                Spacer(modifier = Modifier.height(14.dp))
 
                 OutlinedTextField(
                     value = shopNumber,
@@ -195,9 +312,9 @@ fun AddShopDialog(
                         shopNumber = it
                         hasError = false
                     },
-                    label = { Text(if (isPersonal) "Flat / Property Number *" else "Shop Number *") },
-                    placeholder = { Text(if (isPersonal) "e.g. Flat 301, 2BHK" else "e.g. Shop 105, G-12") },
-                    leadingIcon = { Icon(Icons.Filled.Store, contentDescription = null) },
+                    label = { Text(if (isFlatType) "Flat / Unit Number *" else "Shop Number *") },
+                    placeholder = { Text(if (isFlatType) "e.g. Flat 101, Flat 2B" else "e.g. Shop 105, G-12") },
+                    leadingIcon = { Icon(if (isFlatType) Icons.Filled.Apartment else Icons.Filled.Store, contentDescription = null) },
                     isError = hasError && shopNumber.isBlank(),
                     singleLine = true,
                     modifier = Modifier
@@ -321,11 +438,17 @@ fun AddShopDialog(
                         .fillMaxWidth()
                         .height(48.dp)
                         .testTag("save_shop_button"),
-                    colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.primary),
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = if (isPersonal) Color(0xFF0F766E) else MaterialTheme.colorScheme.primary
+                    ),
                     shape = RoundedCornerShape(12.dp)
                 ) {
                     Text(
-                        text = if (initialShop == null) "SAVE SHOP" else "UPDATE SHOP",
+                        text = if (initialShop == null) {
+                            if (isFlatType) "SAVE FLAT" else "SAVE SHOP"
+                        } else {
+                            if (isFlatType) "UPDATE FLAT" else "UPDATE SHOP"
+                        },
                         fontWeight = FontWeight.Bold,
                         fontSize = 14.sp
                     )

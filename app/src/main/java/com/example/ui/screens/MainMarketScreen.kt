@@ -30,6 +30,7 @@ import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -40,19 +41,23 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.example.BuildConfig
 import com.example.data.SyncStatus
 import com.example.model.UserRole
 import com.example.model.UserSession
+import com.example.ui.components.AppUpdateDialog
 import com.example.ui.components.MarketTopBar
 import com.example.ui.theme.GoldAccent
 import com.example.ui.theme.NavyDark
 import com.example.ui.theme.NavyPrimary
+import com.example.util.NotificationHelper
 import com.example.viewmodel.MarketViewModel
 
 sealed class MarketTab(val title: String, val icon: ImageVector, val tag: String) {
@@ -88,6 +93,21 @@ fun MainMarketScreen(
     val rentStatusFilter by viewModel.rentStatusFilter.collectAsState()
     val isLoading by viewModel.isLoading.collectAsState()
     val workspaceMode by viewModel.workspaceMode.collectAsState()
+    val appUpdateInfo by viewModel.appUpdateInfo.collectAsState()
+    var updateDismissed by remember { mutableStateOf(false) }
+    val context = LocalContext.current
+
+    LaunchedEffect(appUpdateInfo) {
+        val info = appUpdateInfo
+        if (info != null && info.latestVersionCode > BuildConfig.VERSION_CODE) {
+            NotificationHelper.showUpdateNotification(
+                context = context,
+                title = "🚀 ${info.updateTitle.ifBlank { "Naya Update Available Hai!" }}",
+                message = "Version ${info.latestVersionName} update karne ke liye tap karein.",
+                notificationId = 999999
+            )
+        }
+    }
 
     // Tab items: If super admin, include SubAdmins tab. If sub-admin, do NOT include SubAdmins tab!
     val availableTabs = remember(currentUser.role) {
@@ -357,10 +377,22 @@ fun MainMarketScreen(
                         onToggleWorkspace = { viewModel.toggleWorkspace() },
                         onForceRefresh = { viewModel.forceRefresh() },
                         onUpdateAdminProfile = { name, phone -> viewModel.updateAdminProfile(name, phone) },
+                        appUpdateInfo = appUpdateInfo,
+                        onPublishAppUpdate = { viewModel.publishAppUpdate(it) },
+                        onCheckForUpdates = { viewModel.checkForUpdates(it) },
                         onLogout = { viewModel.logout() }
                     )
                 }
             }
         }
+    }
+
+    // Auto-prompt App Update Dialog if newer version is released
+    val currentUpdate = appUpdateInfo
+    if (currentUpdate != null && currentUpdate.latestVersionCode > BuildConfig.VERSION_CODE && !updateDismissed) {
+        AppUpdateDialog(
+            updateInfo = currentUpdate,
+            onDismiss = { updateDismissed = true }
+        )
     }
 }

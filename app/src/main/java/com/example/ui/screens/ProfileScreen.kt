@@ -73,8 +73,16 @@ import androidx.compose.material.icons.filled.ChevronRight
 import androidx.compose.material.icons.filled.DeleteForever
 import com.example.model.RentRecord
 import com.example.model.Tenant
+import com.example.BuildConfig
+import com.example.model.AppUpdateInfo
+import com.example.ui.components.AppUpdateDialog
+import com.example.ui.components.BroadcastUpdateDialog
 import com.example.ui.components.DeletedTenantsArchiveDialog
 import com.example.ui.components.MarketLogoMedallion
+import androidx.compose.material.icons.filled.SystemUpdate
+import androidx.compose.material.icons.filled.RocketLaunch
+import android.widget.Toast
+import androidx.compose.ui.platform.LocalContext
 import com.example.ui.theme.GoldAccent
 import com.example.ui.theme.GoldDark
 import com.example.ui.theme.NavyDark
@@ -103,11 +111,18 @@ fun ProfileScreen(
     onForceRefresh: () -> Unit,
     onLogout: () -> Unit,
     onUpdateAdminProfile: ((String, String) -> Unit)? = null,
+    appUpdateInfo: AppUpdateInfo? = null,
+    onPublishAppUpdate: ((AppUpdateInfo) -> Unit)? = null,
+    onCheckForUpdates: (((AppUpdateInfo?) -> Unit) -> Unit)? = null,
     modifier: Modifier = Modifier
 ) {
+    val context = LocalContext.current
     var showLogoutDialog by remember { mutableStateOf(false) }
     var showEditAdminDialog by remember { mutableStateOf(false) }
     var showMasterArchiveDialog by remember { mutableStateOf(false) }
+    var showBroadcastDialog by remember { mutableStateOf(false) }
+    var showUpdateDialog by remember { mutableStateOf(false) }
+    var isCheckingUpdates by remember { mutableStateOf(false) }
     var editAdminName by remember(user) { mutableStateOf(user?.displayName ?: "Vimal Kumar") }
     var editAdminPhone by remember(user) { mutableStateOf(user?.phone ?: "9876543210") }
 
@@ -559,6 +574,222 @@ fun ProfileScreen(
             }
         }
 
+        Spacer(modifier = Modifier.height(14.dp))
+
+        // App Version & Updates Card
+        val hasNewUpdate = appUpdateInfo != null && appUpdateInfo.latestVersionCode > BuildConfig.VERSION_CODE
+        Card(
+            modifier = Modifier
+                .fillMaxWidth()
+                .testTag("app_version_update_card"),
+            shape = RoundedCornerShape(16.dp),
+            colors = CardDefaults.cardColors(
+                containerColor = if (hasNewUpdate) Color(0xFFFEF9C3) else MaterialTheme.colorScheme.surface
+            ),
+            border = if (hasNewUpdate) androidx.compose.foundation.BorderStroke(1.5.dp, GoldDark) else null,
+            elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
+        ) {
+            Column(modifier = Modifier.padding(16.dp)) {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        modifier = Modifier.weight(1f)
+                    ) {
+                        Box(
+                            modifier = Modifier
+                                .size(36.dp)
+                                .clip(CircleShape)
+                                .background(if (hasNewUpdate) GoldAccent.copy(alpha = 0.3f) else NavyDark.copy(alpha = 0.1f)),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Icon(
+                                imageVector = if (hasNewUpdate) Icons.Filled.RocketLaunch else Icons.Filled.SystemUpdate,
+                                contentDescription = "Updates",
+                                tint = if (hasNewUpdate) GoldDark else NavyDark,
+                                modifier = Modifier.size(20.dp)
+                            )
+                        }
+                        Spacer(modifier = Modifier.width(10.dp))
+                        Column {
+                            Text(
+                                text = "App Version & Updates",
+                                fontWeight = FontWeight.Bold,
+                                fontSize = 14.sp,
+                                color = NavyDark
+                            )
+                            Text(
+                                text = "Installed: v${BuildConfig.VERSION_NAME} (Build ${BuildConfig.VERSION_CODE})",
+                                fontSize = 11.5.sp,
+                                color = Color.Gray
+                            )
+                        }
+                    }
+
+                    if (hasNewUpdate) {
+                        Box(
+                            modifier = Modifier
+                                .clip(RoundedCornerShape(8.dp))
+                                .background(GoldDark)
+                                .padding(horizontal = 8.dp, vertical = 3.dp)
+                        ) {
+                            Text(
+                                text = "NEW v${appUpdateInfo?.latestVersionName}",
+                                color = Color.White,
+                                fontWeight = FontWeight.Bold,
+                                fontSize = 10.sp
+                            )
+                        }
+                    } else {
+                        Box(
+                            modifier = Modifier
+                                .clip(RoundedCornerShape(8.dp))
+                                .background(Color(0xFF16A34A).copy(alpha = 0.12f))
+                                .padding(horizontal = 8.dp, vertical = 3.dp)
+                        ) {
+                            Text(
+                                text = "UP TO DATE ✓",
+                                color = Color(0xFF16A34A),
+                                fontWeight = FontWeight.Bold,
+                                fontSize = 10.sp
+                            )
+                        }
+                    }
+                }
+
+                if (hasNewUpdate) {
+                    Spacer(modifier = Modifier.height(10.dp))
+                    Text(
+                        text = appUpdateInfo?.updateTitle ?: "Naya update available hai!",
+                        fontWeight = FontWeight.SemiBold,
+                        fontSize = 12.5.sp,
+                        color = NavyDark
+                    )
+                    if (!appUpdateInfo?.updateMessage.isNullOrBlank()) {
+                        Spacer(modifier = Modifier.height(4.dp))
+                        Text(
+                            text = appUpdateInfo!!.updateMessage,
+                            fontSize = 11.5.sp,
+                            color = Color(0xFF475569),
+                            maxLines = 3
+                        )
+                    }
+                    Spacer(modifier = Modifier.height(10.dp))
+                    Button(
+                        onClick = { showUpdateDialog = true },
+                        modifier = Modifier.fillMaxWidth(),
+                        colors = ButtonDefaults.buttonColors(
+                            containerColor = NavyDark,
+                            contentColor = GoldAccent
+                        ),
+                        shape = RoundedCornerShape(10.dp)
+                    ) {
+                        Icon(
+                            imageVector = Icons.Filled.RocketLaunch,
+                            contentDescription = null,
+                            modifier = Modifier.size(16.dp)
+                        )
+                        Spacer(modifier = Modifier.width(6.dp))
+                        Text("View Update & Download", fontWeight = FontWeight.Bold, fontSize = 13.sp)
+                    }
+
+                    if (isSuperAdmin) {
+                        Spacer(modifier = Modifier.height(8.dp))
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.spacedBy(8.dp)
+                        ) {
+                            OutlinedButton(
+                                onClick = {
+                                    val resetInfo = AppUpdateInfo(
+                                        latestVersionCode = BuildConfig.VERSION_CODE,
+                                        latestVersionName = BuildConfig.VERSION_NAME,
+                                        updateTitle = "",
+                                        updateMessage = "",
+                                        downloadUrl = "",
+                                        isMandatory = false,
+                                        releasedDate = ""
+                                    )
+                                    onPublishAppUpdate?.invoke(resetInfo)
+                                    Toast.makeText(context, "Update alert clear kar diya gaya hai! App status 'UP TO DATE' ho gaya.", Toast.LENGTH_SHORT).show()
+                                },
+                                modifier = Modifier.weight(1f),
+                                shape = RoundedCornerShape(10.dp),
+                                colors = ButtonDefaults.outlinedButtonColors(
+                                    contentColor = Color(0xFFDC2626)
+                                )
+                            ) {
+                                Text("Clear Alert (Reset to v2.0)", fontSize = 11.5.sp, fontWeight = FontWeight.SemiBold)
+                            }
+
+                            Button(
+                                onClick = { showBroadcastDialog = true },
+                                modifier = Modifier.weight(1f),
+                                shape = RoundedCornerShape(10.dp),
+                                colors = ButtonDefaults.buttonColors(
+                                    containerColor = Color(0xFF334155),
+                                    contentColor = Color.White
+                                )
+                            ) {
+                                Text("Edit Broadcast", fontSize = 11.5.sp, fontWeight = FontWeight.SemiBold)
+                            }
+                        }
+                    }
+                } else {
+                    Spacer(modifier = Modifier.height(12.dp))
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        OutlinedButton(
+                            onClick = {
+                                isCheckingUpdates = true
+                                onCheckForUpdates?.invoke { result ->
+                                    isCheckingUpdates = false
+                                    if (result != null && result.latestVersionCode > BuildConfig.VERSION_CODE) {
+                                        showUpdateDialog = true
+                                    } else {
+                                        Toast.makeText(context, "Aapka app already latest version (v${BuildConfig.VERSION_NAME}) par hai!", Toast.LENGTH_SHORT).show()
+                                    }
+                                }
+                            },
+                            modifier = Modifier.weight(1f),
+                            shape = RoundedCornerShape(10.dp)
+                        ) {
+                            Icon(
+                                imageVector = Icons.Filled.Refresh,
+                                contentDescription = null,
+                                modifier = Modifier.size(16.dp)
+                            )
+                            Spacer(modifier = Modifier.width(6.dp))
+                            Text(
+                                text = if (isCheckingUpdates) "Checking..." else "Check Updates",
+                                fontSize = 11.5.sp,
+                                fontWeight = FontWeight.Medium
+                            )
+                        }
+
+                        if (isSuperAdmin) {
+                            Button(
+                                onClick = { showBroadcastDialog = true },
+                                modifier = Modifier.weight(1f),
+                                colors = ButtonDefaults.buttonColors(
+                                    containerColor = NavyDark,
+                                    contentColor = GoldAccent
+                                ),
+                                shape = RoundedCornerShape(10.dp)
+                            ) {
+                                Text("Broadcast Update", fontSize = 11.5.sp, fontWeight = FontWeight.Bold)
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
         Spacer(modifier = Modifier.height(24.dp))
 
         // Logout Button
@@ -674,6 +905,24 @@ fun ProfileScreen(
             onRestoreTenant = onRestoreTenant,
             onPermanentlyDeleteTenant = onPermanentlyDeleteTenant,
             onDismiss = { showMasterArchiveDialog = false }
+        )
+    }
+
+    if (showBroadcastDialog) {
+        BroadcastUpdateDialog(
+            currentUpdateInfo = appUpdateInfo,
+            onDismiss = { showBroadcastDialog = false },
+            onPublish = { newInfo ->
+                onPublishAppUpdate?.invoke(newInfo)
+                Toast.makeText(context, "Naya version broadcast kar diya gaya hai!", Toast.LENGTH_SHORT).show()
+            }
+        )
+    }
+
+    if (showUpdateDialog && appUpdateInfo != null) {
+        AppUpdateDialog(
+            updateInfo = appUpdateInfo,
+            onDismiss = { showUpdateDialog = false }
         )
     }
 }

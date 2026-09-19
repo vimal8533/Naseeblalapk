@@ -87,7 +87,7 @@ object GoogleDocsHelper {
                     rent.isPartial -> "PARTIAL"
                     else -> "DUE"
                 }
-                val unitLabel = if (rent.isPersonal) "Flat ${rent.shopNumber}" else "Shop ${rent.shopNumber}"
+                val unitLabel = if (rent.isFlat) "Flat ${rent.shopNumber}" else "Shop ${rent.shopNumber}"
 
                 appendLine(
                     String.format(
@@ -99,9 +99,9 @@ object GoogleDocsHelper {
                         statusStr
                     )
                 )
-                if (rent.isPersonal && rent.electricityBill > 0) {
+                if (rent.isFlat && rent.electricityBill > 0) {
                     appendLine("           -> Rent: ₹${formatAmount(rent.amountDue - rent.electricityBill)} | Light Bill: ₹${formatAmount(rent.electricityBill)}")
-                } else if (!rent.isPersonal && rent.pmcTax > 0) {
+                } else if (!rent.isFlat && rent.pmcTax > 0) {
                     appendLine("           -> Rent: ₹${formatAmount(rent.amountDue - rent.pmcTax)} | PMC Tax: ₹${formatAmount(rent.pmcTax)}")
                 }
                 if (rent.paidDate.isNotBlank()) {
@@ -136,7 +136,7 @@ object GoogleDocsHelper {
                 appendLine("Business / Shop Name: ${tenant.businessName}")
             }
             appendLine("Contact Phone       : ${tenant.phone}")
-            val unitWord = if (tenant.isPersonal) "Flat" else "Shop"
+            val unitWord = if (tenant.isFlat) "Flat" else "Shop"
             appendLine("Assigned $unitWord(s)   : ${tenant.shopNumber} (${tenant.shopCount} units)")
             appendLine("Monthly Rent        : ₹${formatAmount(tenant.monthlyRent)}")
             appendLine("Security Deposit    : ₹${formatAmount(tenant.advanceDeposit)}")
@@ -145,7 +145,7 @@ object GoogleDocsHelper {
             if (tenant.idProof.isNotBlank()) {
                 appendLine("Govt ID Proof       : ${tenant.idProof}")
             }
-            if (tenant.isPersonal) {
+            if (tenant.isFlat) {
                 appendLine("Monthly Electricity : ₹${formatAmount(tenant.electricityBill)}")
             } else {
                 appendLine("Annual PMC Tax      : ₹${formatAmount(tenant.annualPmcTaxAmount)}")

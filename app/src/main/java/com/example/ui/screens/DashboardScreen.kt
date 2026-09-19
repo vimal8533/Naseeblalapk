@@ -191,9 +191,12 @@ fun DashboardScreen(
 
     val subMeteredRentsForMonth = remember(rents, tenants, selectedMonth, selectedYear) {
         rents.filter { rent ->
+            val tenant = tenantMap[rent.tenantId]
+            val isFlatUnit = rent.isFlat || (tenant?.isFlat == true)
+
             rent.month.equals(selectedMonth, ignoreCase = true) &&
             rent.year == selectedYear &&
-            (rent.isPersonal || (tenantMap[rent.tenantId]?.isPersonal == true) || rent.electricityBill > 0 || rent.currentMeterReading > 0)
+            (isFlatUnit || rent.electricityBill > 0 || rent.currentMeterReading > 0)
         }
     }
 
@@ -1240,15 +1243,19 @@ fun RentItemCard(
         else -> Quadruple(StatusPending, StatusPendingBg, StatusPendingBorder, "PENDING (₹${rent.pendingAmount.toInt()} DUE)")
     }
 
-    val individualShops = remember(rent.shopNumber, rent.isPersonal) {
+    val isFlatProperty = remember(rent.isPersonal, rent.shopNumber, rent.isFlat) {
+        rent.isFlat
+    }
+
+    val individualShops = remember(rent.shopNumber, rent.isPersonal, isFlatProperty) {
         if (rent.shopNumber.isBlank()) emptyList<String>()
         else rent.shopNumber
             .split(",")
             .map { it.trim() }
             .filter { it.isNotEmpty() }
             .map { raw ->
-                if (rent.isPersonal) {
-                    if (raw.startsWith("Flat", ignoreCase = true) || raw.startsWith("Unit", ignoreCase = true)) raw
+                if (isFlatProperty) {
+                    if (raw.startsWith("Flat", ignoreCase = true) || raw.startsWith("Unit", ignoreCase = true) || raw.startsWith("Room", ignoreCase = true)) raw
                     else "Flat $raw"
                 } else {
                     if (raw.startsWith("Shop", ignoreCase = true)) raw else "Shop $raw"
@@ -1258,10 +1265,10 @@ fun RentItemCard(
     val shopCount = individualShops.size.coerceAtLeast(1)
 
     // Primary display title: Shop/Business Name at top. If business name is blank, fallback to Flat/Shop number(s) or Tenant Name
-    val topShopName = remember(businessName, rent.shopNumber, rent.tenantName, rent.isPersonal) {
+    val topShopName = remember(businessName, rent.shopNumber, rent.tenantName, rent.isPersonal, isFlatProperty) {
         when {
             businessName.isNotBlank() -> businessName
-            rent.shopNumber.isNotBlank() -> if (rent.isPersonal) "Flat ${rent.shopNumber}" else "Shop ${rent.shopNumber}"
+            rent.shopNumber.isNotBlank() -> if (isFlatProperty) (if (rent.shopNumber.startsWith("Flat", ignoreCase = true) || rent.shopNumber.startsWith("Unit", ignoreCase = true)) rent.shopNumber else "Flat ${rent.shopNumber}") else "Shop ${rent.shopNumber}"
             else -> rent.tenantName
         }
     }
@@ -1291,17 +1298,17 @@ fun RentItemCard(
                             .padding(top = 2.dp)
                             .size(40.dp)
                             .clip(CircleShape)
-                            .background(if (rent.isPersonal) Color(0xFF0F766E) else NavyDark),
+                            .background(if (isFlatProperty) Color(0xFF0F766E) else NavyDark),
                         contentAlignment = Alignment.Center
                     ) {
                         Icon(
                             imageVector = when {
-                                rent.isPersonal -> Icons.Filled.Apartment
+                                isFlatProperty -> Icons.Filled.Apartment
                                 businessName.isNotBlank() -> Icons.Filled.Store
                                 else -> Icons.Filled.Person
                             },
                             contentDescription = null,
-                            tint = if (rent.isPersonal) Color.White else GoldAccent,
+                            tint = if (isFlatProperty) Color.White else GoldAccent,
                             modifier = Modifier.size(20.dp)
                         )
                     }
@@ -1313,7 +1320,7 @@ fun RentItemCard(
                             fontWeight = FontWeight.ExtraBold,
                             fontSize = 15.sp,
                             lineHeight = 19.sp,
-                            color = if (rent.isPersonal) Color(0xFF0F766E) else NavyDark,
+                            color = if (isFlatProperty) Color(0xFF0F766E) else NavyDark,
                             softWrap = true
                         )
                         Spacer(modifier = Modifier.height(2.dp))
@@ -1352,11 +1359,26 @@ fun RentItemCard(
                             modifier = Modifier
                                 .clip(RoundedCornerShape(8.dp))
                                 .background(Color(0xFF0F766E).copy(alpha = 0.12f))
-                                .border(0.5.dp, Color(0xFF0F766E).copy(alpha = 0.35f), RoundedCornerShape(8.dp))
+                                .border(0.5.dp, Color(0xFF0F766E).copy(alpha = 0.3f), RoundedCornerShape(8.dp))
                                 .padding(horizontal = 6.dp, vertical = 3.dp)
                         ) {
                             Text(
                                 text = "Personal",
+                                color = Color(0xFF0F766E),
+                                fontSize = 9.5.sp,
+                                fontWeight = FontWeight.Bold
+                            )
+                        }
+                    } else if (isFlatProperty) {
+                        Box(
+                            modifier = Modifier
+                                .clip(RoundedCornerShape(8.dp))
+                                .background(Color(0xFF0F766E).copy(alpha = 0.12f))
+                                .border(0.5.dp, Color(0xFF0F766E).copy(alpha = 0.3f), RoundedCornerShape(8.dp))
+                                .padding(horizontal = 6.dp, vertical = 3.dp)
+                        ) {
+                            Text(
+                                text = "Flat",
                                 color = Color(0xFF0F766E),
                                 fontSize = 9.5.sp,
                                 fontWeight = FontWeight.Bold
@@ -1368,19 +1390,19 @@ fun RentItemCard(
                         Box(
                             modifier = Modifier
                                 .clip(RoundedCornerShape(8.dp))
-                                .background(if (rent.isPersonal) Color(0xFF0F766E) else NavyDark)
-                                .border(0.5.dp, if (rent.isPersonal) Color(0xFF2DD4BF).copy(alpha = 0.5f) else GoldAccent.copy(alpha = 0.5f), RoundedCornerShape(8.dp))
+                                .background(if (isFlatProperty) Color(0xFF0F766E) else NavyDark)
+                                .border(0.5.dp, if (isFlatProperty) Color(0xFF2DD4BF).copy(alpha = 0.5f) else GoldAccent.copy(alpha = 0.5f), RoundedCornerShape(8.dp))
                                 .padding(horizontal = 6.dp, vertical = 3.dp)
                         ) {
                             Row(verticalAlignment = Alignment.CenterVertically) {
                                 Icon(
-                                    imageVector = if (rent.isPersonal) Icons.Filled.Apartment else Icons.Filled.Store,
+                                    imageVector = if (isFlatProperty) Icons.Filled.Apartment else Icons.Filled.Store,
                                     contentDescription = null,
-                                    tint = if (rent.isPersonal) Color.White else GoldAccent,
+                                    tint = if (isFlatProperty) Color.White else GoldAccent,
                                     modifier = Modifier.size(11.dp)
                                 )
                                 Spacer(modifier = Modifier.width(3.dp))
-                                val countLabel = if (rent.isPersonal) "$shopCount Flats" else "$shopCount Shops"
+                                val countLabel = if (isFlatProperty) "$shopCount Flats" else "$shopCount Shops"
                                 Text(
                                     text = countLabel,
                                     color = Color.White,
@@ -1453,25 +1475,25 @@ fun RentItemCard(
                         Box(
                             modifier = Modifier
                                 .clip(RoundedCornerShape(6.dp))
-                                .background(if (rent.isPersonal) Color(0xFF0F766E).copy(alpha = 0.08f) else NavyDark.copy(alpha = 0.07f))
+                                .background(if (isFlatProperty) Color(0xFF0F766E).copy(alpha = 0.08f) else NavyDark.copy(alpha = 0.07f))
                                 .border(
                                     0.5.dp,
-                                    if (rent.isPersonal) Color(0xFF0F766E).copy(alpha = 0.3f) else NavyDark.copy(alpha = 0.2f),
+                                    if (isFlatProperty) Color(0xFF0F766E).copy(alpha = 0.3f) else NavyDark.copy(alpha = 0.2f),
                                     RoundedCornerShape(6.dp)
                                 )
                                 .padding(horizontal = 7.dp, vertical = 2.5.dp)
                         ) {
                             Row(verticalAlignment = Alignment.CenterVertically) {
                                 Icon(
-                                    imageVector = if (rent.isPersonal) Icons.Filled.Apartment else Icons.Filled.Store,
+                                    imageVector = if (isFlatProperty) Icons.Filled.Apartment else Icons.Filled.Store,
                                     contentDescription = null,
-                                    tint = if (rent.isPersonal) Color(0xFF0F766E) else NavyPrimary,
+                                    tint = if (isFlatProperty) Color(0xFF0F766E) else NavyPrimary,
                                     modifier = Modifier.size(11.dp)
                                 )
                                 Spacer(modifier = Modifier.width(3.dp))
                                 Text(
                                     text = unitName,
-                                    color = if (rent.isPersonal) Color(0xFF0F766E) else NavyDark,
+                                    color = if (isFlatProperty) Color(0xFF0F766E) else NavyDark,
                                     fontSize = 10.5.sp,
                                     fontWeight = FontWeight.Bold
                                 )
@@ -1481,9 +1503,9 @@ fun RentItemCard(
                 }
             }
 
-            // ==================== ELECTRICITY BILL BADGE (FOR PERSONAL FLATS) ====================
-            // ==================== ELECTRICITY BILL / METER READING (PERSONAL FLAT) ====================
-            if (rent.isPersonal) {
+            // ==================== ELECTRICITY BILL BADGE (FOR FLATS & METERED UNITS) ====================
+            // ==================== ELECTRICITY BILL / METER READING ====================
+            if (isFlatProperty || rent.hasMeterReading || rent.electricityBill > 0) {
                 Spacer(modifier = Modifier.height(8.dp))
                 if (rent.hasMeterReading || rent.electricityBill > 0) {
                     Box(
@@ -1624,7 +1646,7 @@ fun RentItemCard(
             }
 
             // ==================== PMC TAX BADGE (IF APPLIED - COMMERCIAL ONLY) ====================
-            if (!rent.isPersonal && (rent.hasPmcTax || rent.pmcTax > 0)) {
+            if (!isFlatProperty && (rent.hasPmcTax || rent.pmcTax > 0)) {
                 Spacer(modifier = Modifier.height(8.dp))
                 Box(
                     modifier = Modifier
@@ -1696,7 +1718,7 @@ fun RentItemCard(
                     )
                     Spacer(modifier = Modifier.height(2.dp))
                     Text(text = "₹${formatAmount(rent.amountDue)}", fontWeight = FontWeight.Bold, fontSize = 13.5.sp, color = NavyDark)
-                    if (rent.isPersonal && rent.electricityBill > 0) {
+                    if ((isFlatProperty || rent.electricityBill > 0) && rent.electricityBill > 0) {
                         val flatRent = (rent.amountDue - rent.electricityBill).coerceAtLeast(0.0)
                         Text(
                             text = "Rent: ₹${formatAmount(flatRent)} + Light: ₹${formatAmount(rent.electricityBill)}",
@@ -1706,7 +1728,7 @@ fun RentItemCard(
                         )
                     } else if (shopCount > 1) {
                         val baseRent = if (rent.hasPmcTax) (rent.amountDue - rent.pmcTax).coerceAtLeast(0.0) else rent.amountDue
-                        val unitWord = if (rent.isPersonal) "flat" else "shop"
+                        val unitWord = if (isFlatProperty) "flat" else "shop"
                         Text(
                             text = "(₹${formatAmount(baseRent / shopCount)}/$unitWord)",
                             fontSize = 8.5.sp,
@@ -1899,7 +1921,7 @@ fun RentItemCard(
                     }
                 }
 
-                if (rent.isPersonal && onEditElectricityMeter != null) {
+                if ((isFlatProperty || rent.hasMeterReading || rent.electricityBill > 0) && onEditElectricityMeter != null) {
                     OutlinedButton(
                         onClick = onEditElectricityMeter,
                         modifier = Modifier

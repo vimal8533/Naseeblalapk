@@ -49,4 +49,13 @@ data class RentRecord(
 
     val hasMeterReading: Boolean
         get() = currentMeterReading > 0.0
+
+    val isFlat: Boolean
+        get() = isPersonal ||
+                shopNumber.startsWith("Flat", ignoreCase = true) ||
+                shopNumber.startsWith("Unit", ignoreCase = true) ||
+                shopNumber.startsWith("Room", ignoreCase = true) ||
+                electricityBill > 0.0 ||
+                currentMeterReading > 0.0 ||
+                prevMeterReading > 0.0
 }

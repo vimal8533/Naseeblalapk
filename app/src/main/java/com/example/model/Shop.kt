@@ -23,6 +23,13 @@ data class Shop(
     val totalMonthlyRent: Double get() = baseRent + maintenanceCharge
     val isOccupied: Boolean get() = status.equals("OCCUPIED", ignoreCase = true)
 
+    val isFlat: Boolean
+        get() = isPersonal ||
+                propertyType.equals("FLAT", ignoreCase = true) ||
+                shopNumber.startsWith("Flat", ignoreCase = true) ||
+                shopNumber.startsWith("Unit", ignoreCase = true) ||
+                shopNumber.startsWith("Room", ignoreCase = true)
+
     // Calculate next projected rent after increment
     val nextIncrementRent: Double
         get() = baseRent * (1.0 + (incrementPercent / 100.0))
