@@ -24,21 +24,18 @@ jobs:
           echo -e "24333f8a6356b24488243e05e54285d6140e63f1\nd56f5187479451eabf01fb78af6dfcb131a6481e\n24e8f3108867a32d8495d4356d08c1c12e0849e8" > "$ANDROID_HOME/licenses/android-sdk-license"
           echo -e "84831b9409646a918e30573bab4c9c91346d8abd" > "$ANDROID_HOME/licenses/android-sdk-preview-license"
           yes | $ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager --licenses || true
-          $ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager "platforms;android-36" || true
 
       - name: Setup Gradle
         uses: gradle/actions/setup-gradle@v3
 
-      - name: Prepare Keystore and Configuration
+      - name: Restore Keystore and Environment
         run: |
           touch .env
           echo "sdk.dir=$ANDROID_HOME" > local.properties
-          if [ -f debug.keystore.base64 ]; then
-            base64 -d debug.keystore.base64 > debug.keystore
-          fi
-          if [ ! -f debug.keystore ]; then
-            keytool -genkey -v -keystore debug.keystore -storepass android -alias androiddebugkey -keypass android -keyalg RSA -keysize 2048 -validity 10000 -dname "CN=Android Debug,O=Android,C=US"
-          fi
+          cat << 'EOF' > debug.keystore.base64
+          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
+          EOF
+          base64 -d debug.keystore.base64 > debug.keystore
           chmod +x gradlew
 
       - name: Build Debug APK
