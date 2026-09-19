@@ -48,6 +48,9 @@ import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.TrendingUp
 import androidx.compose.material.icons.filled.Verified
 import androidx.compose.material.icons.filled.Warning
+import androidx.compose.material.icons.filled.Refresh
+import androidx.compose.material.icons.filled.HistoryEdu
+import androidx.compose.material.icons.automirrored.filled.ArrowForwardIos
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
@@ -61,6 +64,7 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -86,6 +90,7 @@ import com.example.model.Shop
 import com.example.model.Tenant
 import com.example.model.UserSession
 import com.example.ui.components.BatchSmsReminderDialog
+import com.example.ui.components.DeletedTenantsArchiveDialog
 import com.example.ui.components.ElectricityMeterDialog
 import com.example.ui.components.CollectRentDialog
 import com.example.ui.components.CorrectPaymentDialog
@@ -129,6 +134,10 @@ fun DashboardScreen(
     monthlyReminders: Map<String, MonthlyReminderRecord> = emptyMap(),
     currentUser: UserSession? = null,
     workspaceMode: AppWorkspaceMode = AppWorkspaceMode.PUBLIC_MARKET,
+    archivedTenants: List<Tenant> = emptyList(),
+    allHistoricalRents: List<RentRecord> = emptyList(),
+    onRestoreTenant: (tenantId: String) -> Unit = {},
+    onPermanentlyDeleteTenant: (tenantId: String) -> Unit = {},
     onMonthChanged: (String) -> Unit,
     onYearChanged: (Int) -> Unit,
     onSearchChanged: (String) -> Unit,
@@ -136,7 +145,9 @@ fun DashboardScreen(
     onCollectRentPayment: (rentId: String, amountPaid: Double, mode: String, notes: String, paidDate: String) -> Unit,
     onCorrectRentPayment: (rentId: String, newTotalPaid: Double, mode: String, reason: String, paidDate: String) -> Unit = { _, _, _, _, _ -> },
     onGenerateMonthCycle: (month: String, year: Int) -> Unit,
-    onSendBatchReminders: (month: String, year: Int, senderName: String, senderPhone: String, subscriptionId: Int?, onProgress: (Int, Int) -> Unit, onComplete: (Int, Int) -> Unit) -> Unit = { _, _, _, _, _, _, _ -> },
+    onSendBatchReminders: (month: String, year: Int, senderName: String, senderPhone: String, subscriptionId: Int?, fast2SmsApiKey: String?, onProgress: (Int, Int) -> Unit, onComplete: (Int, Int, String?) -> Unit) -> Unit = { _, _, _, _, _, _, _, _ -> },
+    onResetReminderStatus: (month: String, year: Int) -> Unit = { _, _ -> },
+    onRecordManualRemindersSent: (month: String, year: Int, count: Int, channel: String) -> Unit = { _, _, _, _ -> },
     onUpdateElectricityMeter: (rentId: String, prev: Double, current: Double, rate: Double) -> Unit = { _, _, _, _ -> },
     isLoading: Boolean = false,
     modifier: Modifier = Modifier
@@ -148,6 +159,7 @@ fun DashboardScreen(
     var monthDropdownExpanded by remember { mutableStateOf(false) }
     var showBatchSmsDialog by remember { mutableStateOf(false) }
     var showDuesBreakdownDialog by remember { mutableStateOf(false) }
+    var showDeletedArchiveDialog by remember { mutableStateOf(false) }
 
     val isPersonalWorkspace = workspaceMode == AppWorkspaceMode.PRIVATE_PERSONAL
     val reminderKey = "${selectedYear}_${selectedMonth}${if (isPersonalWorkspace) "_personal" else ""}"
@@ -235,7 +247,7 @@ fun DashboardScreen(
                 modifier = Modifier.fillMaxSize(),
                 contentPadding = PaddingValues(bottom = 90.dp)
             ) {
-            // 1. Month & Year Selector Banner
+            // 1. Unified Rent Tracker & Actions Header (Clean, Modern M3 Layout)
             item {
                 Card(
                     modifier = Modifier
@@ -249,22 +261,23 @@ fun DashboardScreen(
                     Column(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .padding(12.dp)
+                            .padding(14.dp)
                     ) {
-                        // Row 1: Month Selector & Calendar Picker
+                        // Top Row: Month Picker Chip + Calendar Picker + Excel Export
                         Row(
                             modifier = Modifier.fillMaxWidth(),
-                            verticalAlignment = Alignment.CenterVertically
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.SpaceBetween
                         ) {
+                            // Month & Year Selector
                             Box(modifier = Modifier.weight(1f)) {
                                 Row(
                                     modifier = Modifier
-                                        .fillMaxWidth()
                                         .clip(RoundedCornerShape(10.dp))
                                         .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f))
                                         .border(1.dp, CardBorderLight, RoundedCornerShape(10.dp))
                                         .clickable { monthDropdownExpanded = true }
-                                        .padding(horizontal = 12.dp, vertical = 9.dp),
+                                        .padding(horizontal = 12.dp, vertical = 8.dp),
                                     horizontalArrangement = Arrangement.SpaceBetween,
                                     verticalAlignment = Alignment.CenterVertically
                                 ) {
@@ -273,17 +286,18 @@ fun DashboardScreen(
                                             imageVector = Icons.Filled.CalendarToday,
                                             contentDescription = null,
                                             tint = NavyPrimary,
-                                            modifier = Modifier.size(16.dp)
+                                            modifier = Modifier.size(15.dp)
                                         )
                                         Spacer(modifier = Modifier.width(8.dp))
                                         Text(
                                             text = "$selectedMonth $selectedYear",
                                             fontWeight = FontWeight.Bold,
-                                            fontSize = 14.sp,
+                                            fontSize = 13.5.sp,
                                             color = NavyPrimary
                                         )
                                     }
-                                    Text(text = "▼", fontSize = 10.sp, color = NavyLight)
+                                    Spacer(modifier = Modifier.width(6.dp))
+                                    Text(text = "▼", fontSize = 9.sp, color = NavyLight)
                                 }
 
                                 DropdownMenu(
@@ -304,7 +318,7 @@ fun DashboardScreen(
 
                             Spacer(modifier = Modifier.width(8.dp))
 
-                            // Calendar button to pick date / month / year from calendar
+                            // Calendar Picker Icon Button
                             IconButton(
                                 onClick = {
                                     showCalendarDatePicker(
@@ -318,7 +332,7 @@ fun DashboardScreen(
                                     }
                                 },
                                 modifier = Modifier
-                                    .size(40.dp)
+                                    .size(38.dp)
                                     .clip(RoundedCornerShape(10.dp))
                                     .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f))
                                     .border(1.dp, CardBorderLight, RoundedCornerShape(10.dp))
@@ -327,20 +341,13 @@ fun DashboardScreen(
                                     imageVector = Icons.Filled.EditCalendar,
                                     contentDescription = "Pick Date from Calendar",
                                     tint = NavyPrimary,
-                                    modifier = Modifier.size(18.dp)
+                                    modifier = Modifier.size(17.dp)
                                 )
                             }
-                        }
 
-                        Spacer(modifier = Modifier.height(10.dp))
+                            Spacer(modifier = Modifier.width(8.dp))
 
-                        // Row 2: Action Buttons (Excel Export & Generate Rent Cycle)
-                        Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.spacedBy(8.dp),
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            // Export Excel Button
+                            // Excel Report Button (Compact & Clean)
                             Button(
                                 onClick = {
                                     MonthlyReportExcelGenerator.exportAndShareMonthlyReport(
@@ -355,188 +362,178 @@ fun DashboardScreen(
                                 colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF15803D)),
                                 contentPadding = PaddingValues(horizontal = 12.dp, vertical = 8.dp),
                                 shape = RoundedCornerShape(10.dp),
-                                modifier = Modifier
-                                    .weight(1f)
-                                    .testTag("export_monthly_excel_button")
+                                modifier = Modifier.testTag("export_monthly_excel_button")
                             ) {
                                 Icon(
                                     imageVector = Icons.Filled.Download,
                                     contentDescription = null,
                                     tint = Color.White,
+                                    modifier = Modifier.size(14.dp)
+                                )
+                                Spacer(modifier = Modifier.width(5.dp))
+                                Text("Excel", fontSize = 12.sp, fontWeight = FontWeight.Bold, color = Color.White)
+                            }
+                        }
+
+                        // Bottom Row: Contextual Cycle / Reminder Strip
+                        Spacer(modifier = Modifier.height(12.dp))
+
+                        if (rents.none { it.month == selectedMonth && it.year == selectedYear }) {
+                            // Cycle Missing: One-Click Auto-Generate
+                            OutlinedButton(
+                                onClick = { onGenerateMonthCycle(selectedMonth, selectedYear) },
+                                contentPadding = PaddingValues(horizontal = 14.dp, vertical = 8.dp),
+                                shape = RoundedCornerShape(10.dp),
+                                border = BorderStroke(1.dp, NavyPrimary.copy(alpha = 0.3f)),
+                                colors = ButtonDefaults.outlinedButtonColors(
+                                    containerColor = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.25f)
+                                ),
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .testTag("generate_rent_cycle_button")
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Filled.Refresh,
+                                    contentDescription = null,
+                                    tint = NavyPrimary,
                                     modifier = Modifier.size(15.dp)
                                 )
                                 Spacer(modifier = Modifier.width(6.dp))
-                                Text("Excel Report", fontSize = 12.sp, fontWeight = FontWeight.Bold, color = Color.White)
-                            }
-
-                            // Generate Rent button if missing
-                            OutlinedButton(
-                                onClick = { onGenerateMonthCycle(selectedMonth, selectedYear) },
-                                contentPadding = PaddingValues(horizontal = 12.dp, vertical = 8.dp),
-                                shape = RoundedCornerShape(10.dp),
-                                border = BorderStroke(1.dp, CardBorderLight),
-                                colors = ButtonDefaults.outlinedButtonColors(
-                                    containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.35f)
-                                ),
-                                modifier = Modifier
-                                    .weight(1f)
-                                    .testTag("generate_rent_cycle_button")
-                            ) {
-                                Text("Auto-Generate", fontSize = 12.sp, fontWeight = FontWeight.SemiBold, color = NavyPrimary)
-                            }
-                        }
-                    }
-                }
-            }
-
-            // Monthly SMS Reminder Card (1-Click or Already Sent Notification)
-            item {
-                if (isReminderAlreadySent) {
-                    // Confirmed State: Notification of reminder already sent by Admin/SubAdmin
-                    Box(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(horizontal = 16.dp, vertical = 6.dp)
-                            .clip(RoundedCornerShape(14.dp))
-                            .background(StatusPaidBg)
-                            .border(1.dp, StatusPaidBorder, RoundedCornerShape(14.dp))
-                            .padding(14.dp)
-                            .testTag("reminder_already_sent_card")
-                    ) {
-                        Row(verticalAlignment = Alignment.CenterVertically) {
-                            Box(
-                                modifier = Modifier
-                                    .size(38.dp)
-                                    .clip(CircleShape)
-                                    .background(StatusPaid.copy(alpha = 0.15f)),
-                                contentAlignment = Alignment.Center
-                            ) {
-                                Icon(
-                                    imageVector = Icons.Filled.CheckCircle,
-                                    contentDescription = null,
-                                    tint = StatusPaid,
-                                    modifier = Modifier.size(22.dp)
-                                )
-                            }
-                            Spacer(modifier = Modifier.width(12.dp))
-                            Column {
                                 Text(
-                                    text = "$selectedMonth reminder sent by ${reminderRecord?.sentBy?.ifBlank { "Admin" }}",
+                                    text = "Auto-Generate $selectedMonth Rent Cycle",
+                                    fontSize = 12.5.sp,
                                     fontWeight = FontWeight.Bold,
-                                    fontSize = 13.5.sp,
-                                    color = StatusPaid
+                                    color = NavyPrimary
                                 )
-                                val sentDateStr = remember(reminderRecord?.sentAt) {
-                                    if ((reminderRecord?.sentAt ?: 0L) > 0L) {
-                                        SimpleDateFormat("dd MMM yyyy, hh:mm a", Locale.getDefault()).format(Date(reminderRecord!!.sentAt))
-                                    } else "Recently"
-                                }
-                                Text(
-                                    text = "Dispatched $sentDateStr • ${reminderRecord?.recipientsCount ?: 0} Tenants Notified",
-                                    fontSize = 11.sp,
-                                    color = Color(0xFF166534)
-                                )
-                                if (!reminderRecord?.senderPhone.isNullOrBlank()) {
-                                    Text(
-                                        text = "Sender Contact: ${reminderRecord?.senderPhone}",
-                                        fontSize = 10.5.sp,
-                                        color = StatusPaid.copy(alpha = 0.85f)
-                                    )
-                                }
                             }
-                        }
-                    }
-                } else if (pendingRentsForMonth.isNotEmpty()) {
-                    // Pending State: 1-Click Reminder Card available for sub-admin or admin
-                    Card(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(horizontal = 16.dp, vertical = 6.dp)
-                            .testTag("batch_sms_reminder_card"),
-                        shape = RoundedCornerShape(14.dp),
-                        colors = CardDefaults.cardColors(containerColor = StatusPartialBg),
-                        border = BorderStroke(1.dp, StatusPartialBorder),
-                        elevation = CardDefaults.cardElevation(defaultElevation = 1.dp)
-                    ) {
-                        Column(modifier = Modifier.padding(14.dp)) {
-                            Row(
-                                modifier = Modifier.fillMaxWidth(),
-                                horizontalArrangement = Arrangement.SpaceBetween,
-                                verticalAlignment = Alignment.CenterVertically
+                        } else if (isReminderAlreadySent) {
+                            // Reminders already sent: Clean, peaceful green status bar
+                            Surface(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .testTag("reminder_already_sent_card"),
+                                shape = RoundedCornerShape(10.dp),
+                                color = StatusPaidBg,
+                                border = BorderStroke(1.dp, StatusPaidBorder)
                             ) {
-                                Row(verticalAlignment = Alignment.CenterVertically) {
-                                    Box(
-                                        modifier = Modifier
-                                            .size(36.dp)
-                                            .clip(CircleShape)
-                                            .background(GoldLight),
-                                        contentAlignment = Alignment.Center
+                                Row(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .padding(horizontal = 12.dp, vertical = 8.dp),
+                                    horizontalArrangement = Arrangement.SpaceBetween,
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    Row(
+                                        verticalAlignment = Alignment.CenterVertically,
+                                        modifier = Modifier.weight(1f)
                                     ) {
                                         Icon(
-                                            imageVector = Icons.Filled.NotificationsActive,
+                                            imageVector = Icons.Filled.CheckCircle,
                                             contentDescription = null,
-                                            tint = GoldDark,
+                                            tint = StatusPaid,
                                             modifier = Modifier.size(18.dp)
                                         )
+                                        Spacer(modifier = Modifier.width(8.dp))
+                                        Column {
+                                            Text(
+                                                text = "$selectedMonth Reminders Sent (${reminderRecord?.recipientsCount ?: 0} Tenants)",
+                                                fontWeight = FontWeight.Bold,
+                                                fontSize = 12.sp,
+                                                color = StatusPaid
+                                            )
+                                            if (pendingRentsForMonth.isNotEmpty()) {
+                                                Text(
+                                                    text = "${pendingRentsForMonth.size} tenant(s) still unpaid",
+                                                    fontSize = 10.5.sp,
+                                                    color = Color(0xFF166534)
+                                                )
+                                            }
+                                        }
                                     }
-                                    Spacer(modifier = Modifier.width(10.dp))
-                                    Column {
-                                        Text(
-                                            text = if (isPersonalWorkspace) "$selectedMonth Flat Rent & Electricity Reminders Pending" else "$selectedMonth Rent Reminders Pending",
-                                            fontWeight = FontWeight.Bold,
-                                            fontSize = 13.5.sp,
-                                            color = GoldDark
-                                        )
-                                        Text(
-                                            text = if (isPersonalWorkspace) "${pendingRentsForMonth.size} flat tenants with pending balances" else "${pendingRentsForMonth.size} tenants with pending balances",
-                                            fontSize = 11.sp,
-                                            color = GoldDark.copy(alpha = 0.85f)
-                                        )
+
+                                    if (pendingRentsForMonth.isNotEmpty()) {
+                                        OutlinedButton(
+                                            onClick = { onResetReminderStatus(selectedMonth, selectedYear) },
+                                            contentPadding = PaddingValues(horizontal = 10.dp, vertical = 2.dp),
+                                            shape = RoundedCornerShape(8.dp),
+                                            border = BorderStroke(1.dp, StatusPaid.copy(alpha = 0.5f)),
+                                            modifier = Modifier.testTag("reset_reminder_status_btn")
+                                        ) {
+                                            Text("↺ Reset", fontSize = 11.5.sp, fontWeight = FontWeight.Bold, color = StatusPaid)
+                                        }
                                     }
                                 }
                             }
-
-                            Spacer(modifier = Modifier.height(10.dp))
-
-                            Row(
-                                modifier = Modifier.fillMaxWidth(),
-                                horizontalArrangement = Arrangement.SpaceBetween,
-                                verticalAlignment = Alignment.CenterVertically
+                        } else if (pendingRentsForMonth.isNotEmpty()) {
+                            // Pending Reminders: Sleek, high-contrast action strip
+                            Surface(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .testTag("batch_sms_reminder_card"),
+                                shape = RoundedCornerShape(10.dp),
+                                color = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.3f),
+                                border = BorderStroke(1.dp, MaterialTheme.colorScheme.primary.copy(alpha = 0.2f))
                             ) {
-                                Row(verticalAlignment = Alignment.CenterVertically) {
-                                    Icon(
-                                        imageVector = Icons.Filled.Sms,
-                                        contentDescription = null,
-                                        tint = GoldDark,
-                                        modifier = Modifier.size(14.dp)
-                                    )
-                                    Spacer(modifier = Modifier.width(5.dp))
-                                    Text(
-                                        text = "Direct SIM SMS • No external gateway needed",
-                                        fontSize = 11.sp,
-                                        fontWeight = FontWeight.Medium,
-                                        color = GoldDark
-                                    )
-                                }
-
-                                Button(
-                                    onClick = { showBatchSmsDialog = true },
-                                    colors = ButtonDefaults.buttonColors(containerColor = GoldDark),
-                                    contentPadding = PaddingValues(horizontal = 14.dp, vertical = 6.dp),
-                                    shape = RoundedCornerShape(8.dp),
-                                    modifier = Modifier.testTag("send_batch_sms_btn")
+                                Row(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .padding(horizontal = 12.dp, vertical = 8.dp),
+                                    horizontalArrangement = Arrangement.SpaceBetween,
+                                    verticalAlignment = Alignment.CenterVertically
                                 ) {
-                                    Icon(
-                                        imageVector = Icons.Filled.Send,
-                                        contentDescription = null,
-                                        modifier = Modifier.size(14.dp)
-                                    )
-                                    Spacer(modifier = Modifier.width(6.dp))
-                                    Text(
-                                        text = "Send 1-Click SMS",
-                                        fontSize = 12.sp,
-                                        fontWeight = FontWeight.Bold
-                                    )
+                                    Row(
+                                        verticalAlignment = Alignment.CenterVertically,
+                                        modifier = Modifier.weight(1f)
+                                    ) {
+                                        Box(
+                                            modifier = Modifier
+                                                .size(30.dp)
+                                                .clip(CircleShape)
+                                                .background(NavyPrimary.copy(alpha = 0.12f)),
+                                            contentAlignment = Alignment.Center
+                                        ) {
+                                            Icon(
+                                                imageVector = Icons.Filled.NotificationsActive,
+                                                contentDescription = null,
+                                                tint = NavyPrimary,
+                                                modifier = Modifier.size(16.dp)
+                                            )
+                                        }
+                                        Spacer(modifier = Modifier.width(10.dp))
+                                        Column {
+                                            Text(
+                                                text = "${pendingRentsForMonth.size} Reminders Pending",
+                                                fontWeight = FontWeight.Bold,
+                                                fontSize = 12.5.sp,
+                                                color = NavyPrimary
+                                            )
+                                            Text(
+                                                text = "₹${pendingRentsForMonth.sumOf { it.pendingAmount }.toInt()} due for $selectedMonth",
+                                                fontSize = 11.sp,
+                                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                                            )
+                                        }
+                                    }
+
+                                    Button(
+                                        onClick = { showBatchSmsDialog = true },
+                                        colors = ButtonDefaults.buttonColors(containerColor = NavyPrimary),
+                                        contentPadding = PaddingValues(horizontal = 12.dp, vertical = 6.dp),
+                                        shape = RoundedCornerShape(8.dp),
+                                        modifier = Modifier.testTag("send_batch_sms_btn")
+                                    ) {
+                                        Icon(
+                                            imageVector = Icons.Filled.Sms,
+                                            contentDescription = null,
+                                            modifier = Modifier.size(13.dp)
+                                        )
+                                        Spacer(modifier = Modifier.width(5.dp))
+                                        Text(
+                                            text = "Send Reminders",
+                                            fontSize = 12.sp,
+                                            fontWeight = FontWeight.Bold
+                                        )
+                                    }
                                 }
                             }
                         }
@@ -701,6 +698,65 @@ fun DashboardScreen(
                             modifier = Modifier.weight(1f)
                         )
                     }
+
+                    // Deleted / Exited Tenants Archive Banner (Safe historical records box)
+                    Card(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(top = 8.dp)
+                            .clickable { showDeletedArchiveDialog = true }
+                            .testTag("dashboard_deleted_archive_card"),
+                        shape = RoundedCornerShape(12.dp),
+                        colors = CardDefaults.cardColors(containerColor = Color(0xFFFEF2F2)),
+                        border = BorderStroke(1.dp, Color(0xFFFECACA))
+                    ) {
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(horizontal = 14.dp, vertical = 9.dp),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.spacedBy(10.dp)
+                            ) {
+                                Box(
+                                    modifier = Modifier
+                                        .size(32.dp)
+                                        .clip(CircleShape)
+                                        .background(Color(0xFFFEE2E2)),
+                                    contentAlignment = Alignment.Center
+                                ) {
+                                    Icon(
+                                        imageVector = Icons.Filled.HistoryEdu,
+                                        contentDescription = null,
+                                        tint = Color(0xFFDC2626),
+                                        modifier = Modifier.size(17.dp)
+                                    )
+                                }
+                                Column {
+                                    Text(
+                                        text = "📂 Deleted / Exited Tenants Box (${archivedTenants.size})",
+                                        fontSize = 12.5.sp,
+                                        fontWeight = FontWeight.Bold,
+                                        color = Color(0xFF991B1B)
+                                    )
+                                    Text(
+                                        text = "Check past month & year ledger of vacated tenants safely",
+                                        fontSize = 10.5.sp,
+                                        color = Color(0xFFB91C1C)
+                                    )
+                                }
+                            }
+                            Icon(
+                                imageVector = Icons.AutoMirrored.Filled.ArrowForwardIos,
+                                contentDescription = null,
+                                tint = Color(0xFFDC2626),
+                                modifier = Modifier.size(13.dp)
+                            )
+                        }
+                    }
                 }
             }
 
@@ -841,8 +897,11 @@ fun DashboardScreen(
             tenants = tenants,
             currentUser = currentUser,
             onDismiss = { showBatchSmsDialog = false },
-            onConfirmSend = { senderName, senderPhone, simSlot, onProgress, onComplete ->
-                onSendBatchReminders(selectedMonth, selectedYear, senderName, senderPhone, simSlot, onProgress, onComplete)
+            onRecordManualRemindersSent = { count, channel ->
+                onRecordManualRemindersSent(selectedMonth, selectedYear, count, channel)
+            },
+            onConfirmSend = { senderName, senderPhone, simSlot, apiKey, onProgress, onComplete ->
+                onSendBatchReminders(selectedMonth, selectedYear, senderName, senderPhone, simSlot, apiKey, onProgress, onComplete)
             }
         )
     }
@@ -1116,6 +1175,19 @@ fun DashboardScreen(
                 }
             }
         }
+    }
+
+    // Deleted / Exited Tenants Archive Dialog (Ledger by Month & Year)
+    if (showDeletedArchiveDialog) {
+        DeletedTenantsArchiveDialog(
+            archivedTenants = archivedTenants,
+            allHistoricalRents = allHistoricalRents,
+            initialMonth = selectedMonth,
+            initialYear = selectedYear,
+            onRestoreTenant = onRestoreTenant,
+            onPermanentlyDeleteTenant = onPermanentlyDeleteTenant,
+            onDismiss = { showDeletedArchiveDialog = false }
+        )
     }
 }
 

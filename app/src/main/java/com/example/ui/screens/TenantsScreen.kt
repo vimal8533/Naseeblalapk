@@ -83,11 +83,17 @@ import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.clickable
+import com.example.model.RentRecord
+import com.example.ui.components.DeletedTenantsArchiveDialog
 
 @Composable
 fun TenantsScreen(
     tenants: List<Tenant>,
     shops: List<Shop> = emptyList(),
+    archivedTenants: List<Tenant> = emptyList(),
+    allHistoricalRents: List<RentRecord> = emptyList(),
+    selectedMonth: String = "September",
+    selectedYear: Int = 2026,
     canManagePersonalTenants: Boolean = false,
     currentWorkspaceMode: com.example.model.AppWorkspaceMode = com.example.model.AppWorkspaceMode.PUBLIC_MARKET,
     onAddOrUpdateTenant: (
@@ -110,6 +116,8 @@ fun TenantsScreen(
         electricityBill: Double
     ) -> Unit,
     onDeleteTenant: (tenantId: String) -> Unit,
+    onRestoreTenant: (tenantId: String) -> Unit = {},
+    onPermanentlyDeleteTenant: (tenantId: String) -> Unit = {},
     isLoading: Boolean = false,
     modifier: Modifier = Modifier
 ) {
@@ -118,6 +126,7 @@ fun TenantsScreen(
     var searchQuery by remember { mutableStateOf("") }
     var selectedFilter by remember { mutableStateOf("ALL") } // "ALL", "SINGLE", "MULTI"
     var showAddDialog by remember { mutableStateOf(false) }
+    var showArchiveDialog by remember { mutableStateOf(false) }
     var tenantToEdit by remember { mutableStateOf<Tenant?>(null) }
     var tenantToDelete by remember { mutableStateOf<Tenant?>(null) }
 
@@ -226,7 +235,7 @@ fun TenantsScreen(
                 Spacer(modifier = Modifier.height(10.dp))
             }
 
-            // Summary Stats Bar
+            // Summary Stats Bar & Deleted Tenants Box Button
             item {
                 Row(
                     modifier = Modifier
@@ -235,18 +244,44 @@ fun TenantsScreen(
                     horizontalArrangement = Arrangement.SpaceBetween,
                     verticalAlignment = Alignment.CenterVertically
                 ) {
-                    Text(
-                        text = if (isPersonalWorkspace) "Active Flat Tenants: ${filteredTenants.size}" else "Active Tenants: ${filteredTenants.size}",
-                        fontSize = 12.sp,
-                        fontWeight = FontWeight.Bold,
-                        color = if (isPersonalWorkspace) Color(0xFF0F766E) else NavyPrimary
-                    )
-                    Text(
-                        text = if (isPersonalWorkspace) "Total Assigned Flats: $totalAssignedShops" else "Total Assigned Shops: $totalAssignedShops",
-                        fontSize = 12.sp,
-                        fontWeight = FontWeight.Medium,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
+                    Column {
+                        Text(
+                            text = if (isPersonalWorkspace) "Active Flat Tenants: ${filteredTenants.size}" else "Active Tenants: ${filteredTenants.size}",
+                            fontSize = 12.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = if (isPersonalWorkspace) Color(0xFF0F766E) else NavyPrimary
+                        )
+                        Text(
+                            text = if (isPersonalWorkspace) "Assigned: $totalAssignedShops Flats" else "Assigned: $totalAssignedShops Shops",
+                            fontSize = 11.sp,
+                            fontWeight = FontWeight.Medium,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+
+                    // Button to open the Deleted Tenants Archive Box
+                    OutlinedButton(
+                        onClick = { showArchiveDialog = true },
+                        shape = RoundedCornerShape(10.dp),
+                        contentPadding = PaddingValues(horizontal = 10.dp, vertical = 4.dp),
+                        colors = ButtonDefaults.outlinedButtonColors(containerColor = Color(0xFFFEF2F2)),
+                        border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFFFECACA)),
+                        modifier = Modifier.testTag("open_deleted_tenants_box_button")
+                    ) {
+                        Icon(
+                            imageVector = Icons.Filled.HistoryEdu,
+                            contentDescription = null,
+                            tint = Color(0xFFDC2626),
+                            modifier = Modifier.size(15.dp)
+                        )
+                        Spacer(modifier = Modifier.width(5.dp))
+                        Text(
+                            text = "Deleted Box (${archivedTenants.size})",
+                            fontSize = 11.5.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = Color(0xFFDC2626)
+                        )
+                    }
                 }
                 Spacer(modifier = Modifier.height(8.dp))
             }
@@ -379,23 +414,65 @@ fun TenantsScreen(
         )
     }
 
-    // Delete confirmation dialog
+    // Delete / Archive confirmation dialog
     tenantToDelete?.let { t ->
         AlertDialog(
             onDismissRequest = { tenantToDelete = null },
-            title = { Text("Remove Tenant") },
+            title = {
+                Text(
+                    text = "Remove Tenant: ${t.name}",
+                    fontWeight = FontWeight.Bold,
+                    fontSize = 17.sp,
+                    color = NavyDark
+                )
+            },
             text = {
-                Text("Are you sure you want to remove '${t.name}'?")
+                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Text(
+                        text = "Aap is tenant ko kaise hatana chahte hain?",
+                        fontSize = 13.5.sp,
+                        fontWeight = FontWeight.SemiBold,
+                        color = MaterialTheme.colorScheme.onSurface
+                    )
+                    Text(
+                        text = "1. Archive (Recommended): Tenant active list se hat jayega aur dukan khali ho jayegi, lekin inka purana saara hisaab 'Deleted Box' me surakshit rahega.",
+                        fontSize = 12.sp,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                    Text(
+                        text = "2. Permanent Delete: Agar yeh sirf dummy/test tenant tha, to ise poori tarah mitta diya jayega.",
+                        fontSize = 12.sp,
+                        color = Color(0xFFDC2626)
+                    )
+                }
             },
             confirmButton = {
-                Button(
-                    onClick = {
-                        onDeleteTenant(t.id)
-                        tenantToDelete = null
-                    },
-                    colors = ButtonDefaults.buttonColors(containerColor = StatusPending)
+                Row(
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    verticalAlignment = Alignment.CenterVertically
                 ) {
-                    Text("Remove")
+                    // Permanent Delete (for dummy test data)
+                    OutlinedButton(
+                        onClick = {
+                            onPermanentlyDeleteTenant(t.id)
+                            tenantToDelete = null
+                        },
+                        colors = ButtonDefaults.outlinedButtonColors(contentColor = Color(0xFFDC2626)),
+                        border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFFFECACA))
+                    ) {
+                        Text("Permanent Delete", fontSize = 11.5.sp)
+                    }
+
+                    // Archive (Keep Hisaab)
+                    Button(
+                        onClick = {
+                            onDeleteTenant(t.id)
+                            tenantToDelete = null
+                        },
+                        colors = ButtonDefaults.buttonColors(containerColor = NavyDark)
+                    ) {
+                        Text("Archive (Keep Hisaab)", fontSize = 12.sp)
+                    }
                 }
             },
             dismissButton = {
@@ -403,6 +480,19 @@ fun TenantsScreen(
                     Text("Cancel")
                 }
             }
+        )
+    }
+
+    // Deleted / Exited Tenants Archive Dialog
+    if (showArchiveDialog) {
+        DeletedTenantsArchiveDialog(
+            archivedTenants = archivedTenants,
+            allHistoricalRents = allHistoricalRents,
+            initialMonth = selectedMonth,
+            initialYear = selectedYear,
+            onRestoreTenant = onRestoreTenant,
+            onPermanentlyDeleteTenant = onPermanentlyDeleteTenant,
+            onDismiss = { showArchiveDialog = false }
         )
     }
 }

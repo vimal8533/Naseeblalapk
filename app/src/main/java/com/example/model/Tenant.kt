@@ -26,6 +26,8 @@ data class Tenant(
     val electricityRatePerUnit: Double = 10.0, // Default electricity charge per unit in rupees (e.g. ₹10)
     val isPersonal: Boolean = false,
     val ownerSubAdminId: String = "",
+    val exitDate: String = "",
+    val exitReason: String = "",
     val lastModifiedBy: String = "",
     val updatedAt: Long = System.currentTimeMillis()
 ) {

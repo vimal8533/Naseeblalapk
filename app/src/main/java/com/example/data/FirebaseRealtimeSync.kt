@@ -598,6 +598,8 @@ class FirebaseRealtimeSync(private val context: Context) {
             isPersonal = obj.optBoolean("isPersonal", false),
             ownerSubAdminId = obj.optString("ownerSubAdminId", ""),
             lastModifiedBy = obj.optString("lastModifiedBy", ""),
+            exitDate = obj.optString("exitDate", ""),
+            exitReason = obj.optString("exitReason", ""),
             updatedAt = obj.optLong("updatedAt", System.currentTimeMillis())
         )
     }
@@ -655,7 +657,9 @@ class FirebaseRealtimeSync(private val context: Context) {
             actionType = obj.optString("actionType", ""),
             title = obj.optString("title", ""),
             details = obj.optString("details", ""),
-            authorDeviceId = obj.optString("authorDeviceId", "")
+            authorDeviceId = obj.optString("authorDeviceId", ""),
+            tenantId = obj.optString("tenantId", ""),
+            shopId = obj.optString("shopId", "")
         )
     }
 
@@ -769,6 +773,8 @@ class FirebaseRealtimeSync(private val context: Context) {
             put("electricityRatePerUnit", tenant.electricityRatePerUnit)
             put("isPersonal", tenant.isPersonal)
             put("ownerSubAdminId", tenant.ownerSubAdminId)
+            put("exitDate", tenant.exitDate)
+            put("exitReason", tenant.exitReason)
             put("lastModifiedBy", tenant.lastModifiedBy)
             put("updatedAt", tenant.updatedAt)
         }
@@ -897,6 +903,8 @@ class FirebaseRealtimeSync(private val context: Context) {
             put("title", log.title)
             put("details", log.details)
             put("authorDeviceId", authorId)
+            if (log.tenantId.isNotBlank()) put("tenantId", log.tenantId)
+            if (log.shopId.isNotBlank()) put("shopId", log.shopId)
         }
         sendPutRequest("activity_logs/${log.id}", json.toString())
     }
@@ -924,6 +932,14 @@ class FirebaseRealtimeSync(private val context: Context) {
             put("isSent", record.isSent)
         }
         sendPutRequest("monthly_reminders/${record.id}", json.toString())
+    }
+
+    suspend fun removeMonthlyReminder(reminderId: String): Boolean = withContext(Dispatchers.IO) {
+        val current = _monthlyReminders.value.toMutableMap()
+        current.remove(reminderId)
+        _monthlyReminders.value = current
+        persistCurrentStateToCache()
+        sendDeleteRequest("monthly_reminders/$reminderId")
     }
 
     private fun sendPutRequest(path: String, jsonBody: String): Boolean {
@@ -1029,6 +1045,8 @@ class FirebaseRealtimeSync(private val context: Context) {
                     put("idProof", tenant.idProof)
                     put("isActive", tenant.isActive)
                     put("notes", tenant.notes)
+                    put("exitDate", tenant.exitDate)
+                    put("exitReason", tenant.exitReason)
                     put("lastModifiedBy", tenant.lastModifiedBy)
                     put("updatedAt", tenant.updatedAt)
                 })

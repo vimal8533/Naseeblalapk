@@ -100,7 +100,7 @@ class MarketViewModel(application: Application) : AndroidViewModel(application) 
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
 
     val tenants: StateFlow<List<Tenant>> = combine(rawTenants, currentUser, workspaceMode) { allTenants, user, mode ->
-        when (mode) {
+        val filtered = when (mode) {
             AppWorkspaceMode.PUBLIC_MARKET -> {
                 allTenants.filter { !it.isPersonal }
             }
@@ -112,9 +112,45 @@ class MarketViewModel(application: Application) : AndroidViewModel(application) 
                 }
             }
         }
+        filtered.filter { it.isActive }
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
 
-    val rents: StateFlow<List<RentRecord>> = combine(rawRents, currentUser, workspaceMode) { allRents, user, mode ->
+    val archivedTenants: StateFlow<List<Tenant>> = combine(rawTenants, currentUser, workspaceMode) { allTenants, user, mode ->
+        val filtered = when (mode) {
+            AppWorkspaceMode.PUBLIC_MARKET -> {
+                allTenants.filter { !it.isPersonal }
+            }
+            AppWorkspaceMode.PRIVATE_PERSONAL -> {
+                if (user == null || user.isAdmin) {
+                    allTenants.filter { it.isPersonal }
+                } else {
+                    allTenants.filter { it.isPersonal && it.ownerSubAdminId == user.subAdminId }
+                }
+            }
+        }
+        filtered.filter { !it.isActive }
+    }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
+
+    // Active rents strictly filtered for currently active tenants (prevents deleted tenants from inflating totals)
+    val rents: StateFlow<List<RentRecord>> = combine(rawRents, rawTenants, currentUser, workspaceMode) { allRents, allTenants, user, mode ->
+        val activeTenantIds = allTenants.filter { it.isActive }.map { it.id }.toSet()
+        val modeRents = when (mode) {
+            AppWorkspaceMode.PUBLIC_MARKET -> {
+                allRents.filter { !it.isPersonal }
+            }
+            AppWorkspaceMode.PRIVATE_PERSONAL -> {
+                if (user == null || user.isAdmin) {
+                    allRents.filter { it.isPersonal }
+                } else {
+                    allRents.filter { it.isPersonal && it.ownerSubAdminId == user.subAdminId }
+                }
+            }
+        }
+        modeRents.filter { it.tenantId in activeTenantIds }
+    }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
+
+    // All historical rents (including deleted/archived tenants) for archive audit & ledger
+    val allHistoricalRents: StateFlow<List<RentRecord>> = combine(rawRents, currentUser, workspaceMode) { allRents, user, mode ->
         when (mode) {
             AppWorkspaceMode.PUBLIC_MARKET -> {
                 allRents.filter { !it.isPersonal }
@@ -162,14 +198,24 @@ class MarketViewModel(application: Application) : AndroidViewModel(application) 
         if (loggedIn) {
             val username = authPrefs.getString("username", "") ?: ""
             val roleStr = authPrefs.getString("role", "") ?: ""
-            val displayName = authPrefs.getString("display_name", "") ?: ""
-            val phone = authPrefs.getString("phone", "") ?: ""
+            val savedAdminName = authPrefs.getString("admin_name", "Vimal Kumar") ?: "Vimal Kumar"
+            val savedAdminPhone = authPrefs.getString("admin_phone", "9876543210") ?: "9876543210"
+            var displayName = authPrefs.getString("display_name", "") ?: ""
+            var phone = authPrefs.getString("phone", "") ?: ""
             val subAdminId = authPrefs.getString("sub_admin_id", "") ?: ""
             val sessionId = authPrefs.getString("session_id", "") ?: ""
             val passwordSnapshot = authPrefs.getString("password_snapshot", "") ?: ""
             val canManagePersonalTenants = authPrefs.getBoolean("can_manage_personal_tenants", false)
 
             val role = if (roleStr == UserRole.ADMIN.name) UserRole.ADMIN else UserRole.SUB_ADMIN
+            if (role == UserRole.ADMIN) {
+                if (displayName.isBlank() || displayName.contains("(Master Admin)")) {
+                    displayName = savedAdminName
+                }
+                if (phone.isBlank()) {
+                    phone = savedAdminPhone
+                }
+            }
             val session = UserSession(
                 username = username,
                 role = role,
@@ -233,11 +279,13 @@ class MarketViewModel(application: Application) : AndroidViewModel(application) 
         if (role == UserRole.ADMIN) {
             // 1. Check Master Admin credentials
             if (trimmedUser == "v1i2m3a4l" && trimmedPass == "Vivani@1928") {
+                val savedAdminName = authPrefs.getString("admin_name", "Vimal Kumar") ?: "Vimal Kumar"
+                val savedAdminPhone = authPrefs.getString("admin_phone", "9876543210") ?: "9876543210"
                 val adminSession = UserSession(
                     username = "v1i2m3a4l",
                     role = UserRole.ADMIN,
-                    displayName = "Vimal (Master Admin)",
-                    phone = "",
+                    displayName = savedAdminName,
+                    phone = savedAdminPhone,
                     subAdminId = ""
                 )
                 saveSession(adminSession)
@@ -320,6 +368,21 @@ class MarketViewModel(application: Application) : AndroidViewModel(application) 
             .putString("password_snapshot", session.passwordSnapshot)
             .putBoolean("can_manage_personal_tenants", session.canManagePersonalTenants)
             .apply()
+    }
+
+    fun updateAdminProfile(name: String, phone: String) {
+        val trimmedName = name.trim().ifBlank { "Vimal Kumar" }
+        val trimmedPhone = phone.trim()
+        authPrefs.edit()
+            .putString("admin_name", trimmedName)
+            .putString("admin_phone", trimmedPhone)
+            .apply()
+        val current = _currentUser.value
+        if (current != null && current.isAdmin) {
+            val updated = current.copy(displayName = trimmedName, phone = trimmedPhone)
+            _currentUser.value = updated
+            saveSession(updated)
+        }
     }
 
     fun logout() {
@@ -621,8 +684,71 @@ class MarketViewModel(application: Application) : AndroidViewModel(application) 
     }
 
     fun deleteTenant(tenantId: String) {
+        archiveTenant(tenantId, "Vacated / Deleted")
+    }
+
+    fun archiveTenant(tenantId: String, reason: String = "Vacated / Deleted") {
         viewModelScope.launch {
-            val t = tenants.value.find { it.id == tenantId }
+            val t = rawTenants.value.find { it.id == tenantId } ?: return@launch
+            val exitFormatted = SimpleDateFormat("dd MMM yyyy", Locale.getDefault()).format(Date())
+            val archived = t.copy(
+                isActive = false,
+                exitDate = exitFormatted,
+                exitReason = reason,
+                lastModifiedBy = currentUser.value?.displayName ?: "Admin",
+                updatedAt = System.currentTimeMillis()
+            )
+            sync.saveTenant(archived)
+            // Also free up any shops that were occupied by this tenant
+            val occupiedShops = shops.value.filter { it.tenantId == tenantId }
+            for (shop in occupiedShops) {
+                val updatedShop = shop.copy(
+                    tenantId = null,
+                    tenantName = null,
+                    status = "VACANT",
+                    lastModifiedBy = currentUser.value?.displayName ?: "Admin",
+                    updatedAt = System.currentTimeMillis()
+                )
+                sync.saveShop(updatedShop)
+            }
+            sync.logActivity(ActivityLog(
+                id = "act_${System.currentTimeMillis()}_${UUID.randomUUID().toString().take(4)}",
+                timestamp = System.currentTimeMillis(),
+                userName = currentUser.value?.displayName ?: "User",
+                userRole = currentUser.value?.role?.name ?: "ADMIN",
+                actionType = "ARCHIVE_TENANT",
+                title = "Archived Tenant: ${t.name}",
+                details = "Moved to Deleted/Exited Archive. Historical rent records preserved."
+            ))
+        }
+    }
+
+    fun restoreTenant(tenantId: String) {
+        viewModelScope.launch {
+            val t = rawTenants.value.find { it.id == tenantId } ?: return@launch
+            val restored = t.copy(
+                isActive = true,
+                exitDate = "",
+                exitReason = "",
+                lastModifiedBy = currentUser.value?.displayName ?: "Admin",
+                updatedAt = System.currentTimeMillis()
+            )
+            sync.saveTenant(restored)
+            sync.logActivity(ActivityLog(
+                id = "act_${System.currentTimeMillis()}_${UUID.randomUUID().toString().take(4)}",
+                timestamp = System.currentTimeMillis(),
+                userName = currentUser.value?.displayName ?: "User",
+                userRole = currentUser.value?.role?.name ?: "ADMIN",
+                actionType = "RESTORE_TENANT",
+                title = "Restored Tenant: ${t.name}",
+                details = "Tenant restored to Active list."
+            ))
+        }
+    }
+
+    fun permanentlyDeleteTenant(tenantId: String) {
+        viewModelScope.launch {
+            val t = rawTenants.value.find { it.id == tenantId }
             sync.removeTenant(tenantId)
             sync.removeRentRecordsForTenant(tenantId)
             // Also free up any shops that were occupied by this tenant
@@ -640,10 +766,20 @@ class MarketViewModel(application: Application) : AndroidViewModel(application) 
                 timestamp = System.currentTimeMillis(),
                 userName = currentUser.value?.displayName ?: "User",
                 userRole = currentUser.value?.role?.name ?: "ADMIN",
-                actionType = "DELETE_TENANT",
-                title = "Removed Tenant: ${t?.name ?: tenantId}",
-                details = "Shops: ${t?.shopNumber ?: "N/A"}"
+                actionType = "PERMANENT_DELETE_TENANT",
+                title = "Permanently Deleted: ${t?.name ?: tenantId}",
+                details = "Tenant and all linked dummy records permanently removed."
             ))
+        }
+    }
+
+    fun cleanOrphanRents() {
+        viewModelScope.launch {
+            val allTenantIds = rawTenants.value.map { it.id }.toSet()
+            val orphanRents = rawRents.value.filter { it.tenantId !in allTenantIds }
+            for (orphan in orphanRents) {
+                sync.removeRentRecord(orphan.id)
+            }
         }
     }
 
@@ -772,7 +908,7 @@ class MarketViewModel(application: Application) : AndroidViewModel(application) 
                     val prevReading = if (tenant.isPersonal) {
                         val prevRentWithReading = rawRents.value
                             .filter { it.tenantId == tenant.id && it.currentMeterReading > 0.0 }
-                            .maxByOrNull { it.year * 100 + monthToOrder(it.month) }
+                            .maxByOrNull { it.year * 100 + BillingCycleHelper.monthToOrder(it.month) }
                         prevRentWithReading?.currentMeterReading ?: tenant.lastMeterReading
                     } else 0.0
 
@@ -993,8 +1129,9 @@ class MarketViewModel(application: Application) : AndroidViewModel(application) 
         senderName: String = "",
         senderContactPhone: String,
         simSlotSubscriptionId: Int? = null,
+        fast2SmsApiKey: String? = null,
         onProgress: (current: Int, total: Int) -> Unit = { _, _ -> },
-        onComplete: (successCount: Int, failedCount: Int) -> Unit
+        onComplete: (successCount: Int, failedCount: Int, errorMessage: String?) -> Unit = { _, _, _ -> }
     ) {
         viewModelScope.launch {
             val pendingRecords = rents.value.filter { rent ->
@@ -1005,18 +1142,21 @@ class MarketViewModel(application: Application) : AndroidViewModel(application) 
             }
 
             if (pendingRecords.isEmpty()) {
-                onComplete(0, 0)
+                onComplete(0, 0, null)
                 return@launch
             }
 
             var successCount = 0
             var failedCount = 0
+            var lastErrorMessage: String? = null
             val total = pendingRecords.size
 
             val currentUserName = currentUser.value?.let {
-                if (it.isAdmin) "Admin (${it.displayName})" else it.displayName
-            } ?: "Admin"
+                if (it.isAdmin) it.displayName.replace("(Master Admin)", "").trim().ifBlank { "Vimal Kumar" } else it.displayName.ifBlank { "Manager" }
+            } ?: "Vimal Kumar"
             val effectiveSenderName = senderName.trim().ifBlank { currentUserName }
+            val apiKey = fast2SmsApiKey?.trim()?.ifBlank { null }
+                ?: SmsReminderHelper.getFast2SmsApiKey(getApplication()).ifBlank { null }
 
             withContext(Dispatchers.IO) {
                 for ((index, rent) in pendingRecords.withIndex()) {
@@ -1036,24 +1176,122 @@ class MarketViewModel(application: Application) : AndroidViewModel(application) 
                             electricityBill = rent.electricityBill,
                             flatBaseRent = (rent.amountDue - rent.electricityBill).coerceAtLeast(0.0)
                         )
-                        val sent = SmsReminderHelper.sendSms(
-                            context = getApplication(),
-                            rawPhoneNumber = phone,
-                            message = message,
-                            subscriptionId = simSlotSubscriptionId
-                        )
-                        if (sent) successCount++ else failedCount++
+
+                        val result = if (!apiKey.isNullOrBlank()) {
+                            SmsReminderHelper.sendViaFast2SmsRetrofit(
+                                apiKey = apiKey,
+                                rawPhoneNumber = phone,
+                                message = message
+                            )
+                        } else {
+                            val sent = SmsReminderHelper.sendSms(
+                                context = getApplication(),
+                                rawPhoneNumber = phone,
+                                message = message,
+                                subscriptionId = simSlotSubscriptionId
+                            )
+                            Pair(sent, if (sent) "SMS sent" else "Device SIM SMS failed")
+                        }
+
+                        if (result.first) {
+                            successCount++
+                        } else {
+                            failedCount++
+                            if (lastErrorMessage == null) {
+                                lastErrorMessage = result.second
+                            }
+                        }
                     } else {
                         failedCount++
+                        if (lastErrorMessage == null) {
+                            lastErrorMessage = "Missing phone number for ${rent.tenantName}"
+                        }
                     }
                     withContext(Dispatchers.Main) {
                         onProgress(index + 1, total)
                     }
-                    delay(120)
+                    delay(250)
                 }
             }
 
-            // Save reminder sent state in Firebase & Local cache (separate for commercial vs personal workspace)
+            // Only mark monthly reminder as sent if at least 1 SMS was actually delivered
+            if (successCount > 0) {
+                val isPersonalWorkspace = workspaceMode.value == AppWorkspaceMode.PRIVATE_PERSONAL
+                val reminderId = "${year}_${month}${if (isPersonalWorkspace) "_personal" else ""}"
+                val reminderRecord = MonthlyReminderRecord(
+                    id = reminderId,
+                    month = month,
+                    year = year,
+                    sentBy = effectiveSenderName,
+                    senderPhone = senderContactPhone,
+                    sentAt = System.currentTimeMillis(),
+                    recipientsCount = successCount,
+                    isSent = true
+                )
+                sync.saveMonthlyReminder(reminderRecord)
+
+                // Add Activity Log
+                sync.logActivity(
+                    ActivityLog(
+                        id = "act_${System.currentTimeMillis()}_${UUID.randomUUID().toString().take(4)}",
+                        timestamp = System.currentTimeMillis(),
+                        userName = effectiveSenderName,
+                        userRole = currentUser.value?.role?.name ?: "ADMIN",
+                        actionType = "SEND_BATCH_SMS_REMINDERS",
+                        title = "${if (isPersonalWorkspace) "Flat Rent & Electricity" else "Rent"} SMS Sent for $month $year",
+                        details = "Sent by $effectiveSenderName to $successCount tenants (Contact: ${senderContactPhone.ifBlank { "N/A" }})"
+                    )
+                )
+            }
+
+            withContext(Dispatchers.Main) {
+                onComplete(successCount, failedCount, lastErrorMessage)
+            }
+        }
+    }
+
+    fun resetMonthlyReminderStatus(month: String, year: Int) {
+        viewModelScope.launch {
+            val isPersonalWorkspace = workspaceMode.value == AppWorkspaceMode.PRIVATE_PERSONAL
+            val reminderId = "${year}_${month}${if (isPersonalWorkspace) "_personal" else ""}"
+            sync.removeMonthlyReminder(reminderId)
+
+            val matchedEntries = monthlyReminders.value.entries.filter {
+                it.key.equals(reminderId, ignoreCase = true) ||
+                (it.value.month.equals(month, ignoreCase = true) && it.value.year == year && it.key.contains("personal") == isPersonalWorkspace)
+            }
+            for (entry in matchedEntries) {
+                sync.removeMonthlyReminder(entry.key)
+            }
+
+            val currentUserName = currentUser.value?.let {
+                if (it.isAdmin) "Admin (${it.displayName})" else it.displayName
+            } ?: "Admin"
+            sync.logActivity(
+                ActivityLog(
+                    id = "act_${System.currentTimeMillis()}_${UUID.randomUUID().toString().take(4)}",
+                    timestamp = System.currentTimeMillis(),
+                    userName = currentUserName,
+                    userRole = currentUser.value?.role?.name ?: "ADMIN",
+                    actionType = "RESET_SMS_REMINDERS",
+                    title = "Reminder status reset for $month $year",
+                    details = "Reminder lock reset by $currentUserName to allow re-sending reminders"
+                )
+            )
+        }
+    }
+
+    fun recordManualRemindersSent(
+        month: String,
+        year: Int,
+        recipientsCount: Int,
+        channel: String = "SMS/WhatsApp"
+    ) {
+        viewModelScope.launch {
+            if (recipientsCount <= 0) return@launch
+            val effectiveSenderName = currentUser.value?.let {
+                if (it.isAdmin) "Admin (${it.displayName})" else it.displayName
+            } ?: "Admin"
             val isPersonalWorkspace = workspaceMode.value == AppWorkspaceMode.PRIVATE_PERSONAL
             val reminderId = "${year}_${month}${if (isPersonalWorkspace) "_personal" else ""}"
             val reminderRecord = MonthlyReminderRecord(
@@ -1061,29 +1299,23 @@ class MarketViewModel(application: Application) : AndroidViewModel(application) 
                 month = month,
                 year = year,
                 sentBy = effectiveSenderName,
-                senderPhone = senderContactPhone,
+                senderPhone = currentUser.value?.phone ?: "",
                 sentAt = System.currentTimeMillis(),
-                recipientsCount = successCount,
+                recipientsCount = recipientsCount,
                 isSent = true
             )
             sync.saveMonthlyReminder(reminderRecord)
-
-            // Add Activity Log
             sync.logActivity(
                 ActivityLog(
                     id = "act_${System.currentTimeMillis()}_${UUID.randomUUID().toString().take(4)}",
                     timestamp = System.currentTimeMillis(),
                     userName = effectiveSenderName,
                     userRole = currentUser.value?.role?.name ?: "ADMIN",
-                    actionType = "SEND_BATCH_SMS_REMINDERS",
-                    title = "${if (isPersonalWorkspace) "Flat Rent & Electricity" else "Rent"} SMS Sent for $month $year",
-                    details = "Sent by $effectiveSenderName to $successCount tenants (Contact: ${senderContactPhone.ifBlank { "N/A" }})"
+                    actionType = "MANUAL_REMINDERS_SENT",
+                    title = "$channel Reminders Sent for $month $year",
+                    details = "Dispatched to $recipientsCount tenants via $channel by $effectiveSenderName"
                 )
             )
-
-            withContext(Dispatchers.Main) {
-                onComplete(successCount, failedCount)
-            }
         }
     }
 

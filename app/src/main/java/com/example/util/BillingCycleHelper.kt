@@ -15,6 +15,24 @@ object BillingCycleHelper {
         return if (idx >= 0) idx else 0
     }
 
+    fun monthToOrder(month: String): Int {
+        return when (month.lowercase().trim()) {
+            "january", "jan" -> 1
+            "february", "feb" -> 2
+            "march", "mar" -> 3
+            "april", "apr" -> 4
+            "may" -> 5
+            "june", "jun" -> 6
+            "july", "jul" -> 7
+            "august", "aug" -> 8
+            "september", "sep" -> 9
+            "october", "oct" -> 10
+            "november", "nov" -> 11
+            "december", "dec" -> 12
+            else -> 0
+        }
+    }
+
     /**
      * Checks if rent for this tenant should be billed / due in the specified month & year.
      * Monthly: Every month.

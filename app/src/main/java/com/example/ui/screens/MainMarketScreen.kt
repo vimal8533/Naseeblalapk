@@ -73,8 +73,10 @@ fun MainMarketScreen(
 
     val shops by viewModel.shops.collectAsState()
     val tenants by viewModel.tenants.collectAsState()
+    val archivedTenants by viewModel.archivedTenants.collectAsState()
     val rents by viewModel.filteredRents.collectAsState()
     val allRents by viewModel.rents.collectAsState()
+    val allHistoricalRents by viewModel.allHistoricalRents.collectAsState()
     val subAdmins by viewModel.subAdmins.collectAsState()
     val activityLogs by viewModel.activityLogs.collectAsState()
     val monthlyReminders by viewModel.monthlyReminders.collectAsState()
@@ -218,6 +220,10 @@ fun MainMarketScreen(
                         allRents = allRents,
                         shops = shops,
                         tenants = tenants,
+                        archivedTenants = archivedTenants,
+                        allHistoricalRents = allHistoricalRents,
+                        onRestoreTenant = { viewModel.restoreTenant(it) },
+                        onPermanentlyDeleteTenant = { viewModel.permanentlyDeleteTenant(it) },
                         selectedMonth = selectedMonth,
                         selectedYear = selectedYear,
                         searchQuery = searchQuery,
@@ -238,8 +244,23 @@ fun MainMarketScreen(
                         onGenerateMonthCycle = { month, year ->
                             viewModel.generateRentRecordsForMonth(month, year)
                         },
-                        onSendBatchReminders = { month, year, senderName, phone, simSlot, onProgress, onComplete ->
-                            viewModel.sendBatchRentReminders(month, year, senderName, phone, simSlot, onProgress, onComplete)
+                        onSendBatchReminders = { month, year, senderName, phone, simSlot, apiKey, onProgress, onComplete ->
+                            viewModel.sendBatchRentReminders(
+                                month = month,
+                                year = year,
+                                senderName = senderName,
+                                senderContactPhone = phone,
+                                simSlotSubscriptionId = simSlot,
+                                fast2SmsApiKey = apiKey,
+                                onProgress = onProgress,
+                                onComplete = onComplete
+                            )
+                        },
+                        onResetReminderStatus = { month, year ->
+                            viewModel.resetMonthlyReminderStatus(month, year)
+                        },
+                        onRecordManualRemindersSent = { month, year, count, channel ->
+                            viewModel.recordManualRemindersSent(month, year, count, channel)
                         },
                         onUpdateElectricityMeter = { rentId, prev, current, rate ->
                             viewModel.updateElectricityMeterReading(rentId, prev, current, rate)
@@ -265,6 +286,10 @@ fun MainMarketScreen(
                     TenantsScreen(
                         tenants = tenants,
                         shops = shops,
+                        archivedTenants = archivedTenants,
+                        allHistoricalRents = allHistoricalRents,
+                        selectedMonth = selectedMonth,
+                        selectedYear = selectedYear,
                         canManagePersonalTenants = canManagePersonal,
                         currentWorkspaceMode = workspaceMode,
                         onAddOrUpdateTenant = { name, business, phone, shopNumber, numberOfShops, deposit, rent, previousDues, incYears, incPct, cycle, date, idProof, notes, existingId, isPersonal, elecBill ->
@@ -290,6 +315,8 @@ fun MainMarketScreen(
                             )
                         },
                         onDeleteTenant = { viewModel.deleteTenant(it) },
+                        onRestoreTenant = { viewModel.restoreTenant(it) },
+                        onPermanentlyDeleteTenant = { viewModel.permanentlyDeleteTenant(it) },
                         isLoading = isLoading
                     )
                 }
@@ -320,6 +347,7 @@ fun MainMarketScreen(
                         workspaceMode = workspaceMode,
                         onToggleWorkspace = { viewModel.toggleWorkspace() },
                         onForceRefresh = { viewModel.forceRefresh() },
+                        onUpdateAdminProfile = { name, phone -> viewModel.updateAdminProfile(name, phone) },
                         onLogout = { viewModel.logout() }
                     )
                 }

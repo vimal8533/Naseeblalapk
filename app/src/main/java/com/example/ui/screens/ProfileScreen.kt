@@ -17,6 +17,7 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.SwapHoriz
@@ -24,9 +25,11 @@ import androidx.compose.material.icons.filled.Apartment
 import androidx.compose.material.icons.filled.Store
 import androidx.compose.material.icons.filled.CloudDone
 import androidx.compose.material.icons.filled.CloudSync
+import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.ExitToApp
 import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.filled.Person
+import androidx.compose.material.icons.filled.Phone
 import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.Security
 import androidx.compose.material.icons.filled.Shield
@@ -38,8 +41,10 @@ import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.Divider
 import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
+import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
@@ -53,6 +58,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.data.SyncStatus
@@ -80,9 +86,13 @@ fun ProfileScreen(
     onToggleWorkspace: () -> Unit = {},
     onForceRefresh: () -> Unit,
     onLogout: () -> Unit,
+    onUpdateAdminProfile: ((String, String) -> Unit)? = null,
     modifier: Modifier = Modifier
 ) {
     var showLogoutDialog by remember { mutableStateOf(false) }
+    var showEditAdminDialog by remember { mutableStateOf(false) }
+    var editAdminName by remember(user) { mutableStateOf(user?.displayName ?: "Vimal Kumar") }
+    var editAdminPhone by remember(user) { mutableStateOf(user?.phone ?: "9876543210") }
 
     val lastSyncStr = remember(lastSyncedAt) {
         if (lastSyncedAt > 0) {
@@ -149,6 +159,44 @@ fun ProfileScreen(
             color = MaterialTheme.colorScheme.onSurfaceVariant,
             modifier = Modifier.padding(top = 4.dp)
         )
+
+        // Contact / Reminder Phone Number
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
+            modifier = Modifier.padding(top = 4.dp)
+        ) {
+            Icon(
+                imageVector = Icons.Filled.Phone,
+                contentDescription = null,
+                tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier.size(13.dp)
+            )
+            Spacer(modifier = Modifier.width(4.dp))
+            Text(
+                text = "Reminder Contact: ${user?.phone?.ifBlank { if (isSuperAdmin) "9876543210" else "None" } ?: ""}",
+                fontSize = 12.sp,
+                fontWeight = FontWeight.Medium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+            if (isSuperAdmin) {
+                Spacer(modifier = Modifier.width(6.dp))
+                IconButton(
+                    onClick = {
+                        editAdminName = user?.displayName ?: "Vimal Kumar"
+                        editAdminPhone = user?.phone?.ifBlank { "9876543210" } ?: "9876543210"
+                        showEditAdminDialog = true
+                    },
+                    modifier = Modifier.size(24.dp)
+                ) {
+                    Icon(
+                        imageVector = Icons.Filled.Edit,
+                        contentDescription = "Edit Contact",
+                        tint = GoldAccent,
+                        modifier = Modifier.size(14.dp)
+                    )
+                }
+            }
+        }
 
         // Workspace Mode Indicator & Switcher (if user has personal property rights)
         val canAccessPersonal = user != null && (user.isAdmin || user.canManagePersonalTenants)
@@ -424,6 +472,59 @@ fun ProfileScreen(
             },
             dismissButton = {
                 TextButton(onClick = { showLogoutDialog = false }) {
+                    Text("Cancel")
+                }
+            }
+        )
+    }
+
+    if (showEditAdminDialog) {
+        AlertDialog(
+            onDismissRequest = { showEditAdminDialog = false },
+            title = {
+                Text("Edit Admin Reminder Contact", fontWeight = FontWeight.Bold)
+            },
+            text = {
+                Column(modifier = Modifier.fillMaxWidth()) {
+                    Text(
+                        text = "Set the sender name and phone number that will appear on rent reminders sent by you.",
+                        fontSize = 12.sp,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                    Spacer(modifier = Modifier.height(12.dp))
+                    OutlinedTextField(
+                        value = editAdminName,
+                        onValueChange = { editAdminName = it },
+                        label = { Text("Admin Name") },
+                        placeholder = { Text("Vimal Kumar") },
+                        singleLine = true,
+                        modifier = Modifier.fillMaxWidth()
+                    )
+                    Spacer(modifier = Modifier.height(8.dp))
+                    OutlinedTextField(
+                        value = editAdminPhone,
+                        onValueChange = { editAdminPhone = it },
+                        label = { Text("Contact Mobile Number") },
+                        placeholder = { Text("9876543210") },
+                        singleLine = true,
+                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Phone),
+                        modifier = Modifier.fillMaxWidth()
+                    )
+                }
+            },
+            confirmButton = {
+                Button(
+                    onClick = {
+                        showEditAdminDialog = false
+                        onUpdateAdminProfile?.invoke(editAdminName.trim(), editAdminPhone.trim())
+                    },
+                    colors = ButtonDefaults.buttonColors(containerColor = NavyPrimary)
+                ) {
+                    Text("Save Details")
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { showEditAdminDialog = false }) {
                     Text("Cancel")
                 }
             }
