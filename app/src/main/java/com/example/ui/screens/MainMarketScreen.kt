@@ -106,13 +106,26 @@ fun MainMarketScreen(
 
     LaunchedEffect(appUpdateInfo) {
         val info = appUpdateInfo
-        if (info != null && info.latestVersionCode > BuildConfig.VERSION_CODE) {
-            NotificationHelper.showUpdateNotification(
-                context = context,
-                title = "🚀 ${info.updateTitle.ifBlank { "Naya Update Available Hai!" }}",
-                message = "Version ${info.latestVersionName} update karne ke liye tap karein.",
-                notificationId = 999999
-            )
+        val prefs = context.getSharedPreferences("nlm_auth_prefs", Context.MODE_PRIVATE)
+        if (info != null) {
+            if (info.latestVersionCode > BuildConfig.VERSION_CODE) {
+                val lastNotifiedCode = prefs.getInt("last_notified_update_version_code", 0)
+                // Only send system notification once per new version code, avoiding annoying repeated alerts
+                if (info.latestVersionCode > lastNotifiedCode) {
+                    NotificationHelper.showUpdateNotification(
+                        context = context,
+                        title = "🚀 ${info.updateTitle.ifBlank { "Naya Update Available Hai!" }}",
+                        message = "Version ${info.latestVersionName} update karne ke liye tap karein.",
+                        notificationId = 999999
+                    )
+                    prefs.edit().putInt("last_notified_update_version_code", info.latestVersionCode).apply()
+                }
+            } else {
+                // If app is already up to date, dismiss any stale update notification
+                try {
+                    androidx.core.app.NotificationManagerCompat.from(context).cancel(999999)
+                } catch (_: Exception) {}
+            }
         }
     }
 
