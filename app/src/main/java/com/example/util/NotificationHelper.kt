@@ -6,19 +6,22 @@ import android.app.PendingIntent
 import android.content.Context
 import android.content.Intent
 import android.content.pm.PackageManager
+import android.graphics.Bitmap
+import android.graphics.BitmapFactory
 import android.os.Build
 import android.util.Log
 import androidx.core.app.NotificationCompat
 import androidx.core.app.NotificationManagerCompat
 import androidx.core.content.ContextCompat
 import com.example.MainActivity
+import com.example.R
 
 object NotificationHelper {
 
     private const val TAG = "NotificationHelper"
     const val CHANNEL_ID = "market_updates_channel"
-    private const val CHANNEL_NAME = "Market Real-Time Updates"
-    private const val CHANNEL_DESC = "Instant notifications when shops, tenants, or rents are updated by users"
+    private const val CHANNEL_NAME = "Naseeb Lal Market Updates"
+    private const val CHANNEL_DESC = "Notices, rent alerts, and market announcements for Naseeb Lal Market"
 
     fun createNotificationChannel(context: Context) {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
@@ -29,6 +32,7 @@ object NotificationHelper {
             ).apply {
                 description = CHANNEL_DESC
                 enableLights(true)
+                lightColor = 0xFFD97706.toInt()
                 enableVibration(true)
                 vibrationPattern = longArrayOf(0, 250, 150, 250)
                 setShowBadge(true)
@@ -70,8 +74,17 @@ object NotificationHelper {
                 PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
             )
 
-            val notification = NotificationCompat.Builder(context, CHANNEL_ID)
-                .setSmallIcon(android.R.drawable.ic_dialog_info)
+            // Decode market logo for large icon
+            val largeLogoBitmap: Bitmap? = try {
+                BitmapFactory.decodeResource(context.resources, R.drawable.market_logo)
+            } catch (_: Exception) {
+                null
+            }
+
+            val builder = NotificationCompat.Builder(context, CHANNEL_ID)
+                .setSmallIcon(R.drawable.ic_notification_market)
+                .setSubText("Naseeb Lal Market")
+                .setColor(0xFFD97706.toInt()) // Brand Gold/Amber
                 .setContentTitle(title)
                 .setContentText(message)
                 .setStyle(NotificationCompat.BigTextStyle().bigText(message))
@@ -79,7 +92,12 @@ object NotificationHelper {
                 .setDefaults(NotificationCompat.DEFAULT_ALL)
                 .setAutoCancel(true)
                 .setContentIntent(pendingIntent)
-                .build()
+
+            if (largeLogoBitmap != null) {
+                builder.setLargeIcon(largeLogoBitmap)
+            }
+
+            val notification = builder.build()
 
             NotificationManagerCompat.from(context).notify(notificationId, notification)
             Log.i(TAG, "Notification posted successfully: $title - $message")

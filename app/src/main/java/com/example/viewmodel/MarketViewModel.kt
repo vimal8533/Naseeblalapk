@@ -9,7 +9,9 @@ import com.example.data.SyncStatus
 import com.example.model.ActivityLog
 import com.example.model.AppUpdateInfo
 import com.example.model.AppWorkspaceMode
+import com.example.model.MarketNotice
 import com.example.model.MonthlyReminderRecord
+import com.example.model.PmcTaxClearanceRecord
 import com.example.model.RentRecord
 import com.example.model.Shop
 import com.example.model.SubAdminUser
@@ -73,10 +75,141 @@ class MarketViewModel(application: Application) : AndroidViewModel(application) 
     val subAdmins: StateFlow<List<SubAdminUser>> = sync.subAdmins
     val activityLogs: StateFlow<List<ActivityLog>> = sync.activityLogs
     val monthlyReminders: StateFlow<Map<String, MonthlyReminderRecord>> = sync.monthlyReminders
+    val marketNotices: StateFlow<List<MarketNotice>> = sync.marketNotices
+    val pmcTaxClearances: StateFlow<Map<String, PmcTaxClearanceRecord>> = sync.pmcTaxClearances
     val syncStatus: StateFlow<SyncStatus> = sync.syncStatus
     val lastSyncedAt: StateFlow<Long> = sync.lastSyncedAt
     val isLoading: StateFlow<Boolean> = sync.isInitialLoading
     val appUpdateInfo: StateFlow<AppUpdateInfo?> = sync.appUpdateInfo
+
+    val currentFinancialYear: String = PmcTaxHelper.getCurrentFinancialYear()
+    val isPmcTaxPeriod: Boolean = PmcTaxHelper.isPmcTaxNotificationPeriod()
+
+    val currentPmcClearance: StateFlow<PmcTaxClearanceRecord?> = combine(pmcTaxClearances, MutableStateFlow(currentFinancialYear)) { clearances, fy ->
+        clearances[fy]
+    }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), null)
+
+    val isPmcTaxDueForCurrentYear: StateFlow<Boolean> = combine(currentPmcClearance, MutableStateFlow(isPmcTaxPeriod)) { clearance, inPeriod ->
+        inPeriod && (clearance == null || !clearance.isPaid)
+    }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), isPmcTaxPeriod)
+
+    private val _lastSeenNoticeTime = MutableStateFlow(
+        authPrefs.getLong("last_seen_notice_time", 0L)
+    )
+    val lastSeenNoticeTime: StateFlow<Long> = _lastSeenNoticeTime.asStateFlow()
+
+    val unreadNoticesCount: StateFlow<Int> = combine(marketNotices, lastSeenNoticeTime, isPmcTaxDueForCurrentYear) { notices, lastSeen, isDue ->
+        val unread = notices.count { it.createdAt > lastSeen }
+        if (isDue) unread + 1 else unread
+    }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), 0)
+
+    fun markNoticesAsSeen() {
+        val now = System.currentTimeMillis()
+        _lastSeenNoticeTime.value = now
+        authPrefs.edit().putLong("last_seen_notice_time", now).apply()
+    }
+
+    fun markPmcTaxPaid(
+        amount: Double,
+        receiptNumber: String = "",
+        paidDate: String = "",
+        paymentMode: String = "CASH",
+        notes: String = "",
+        onComplete: ((Boolean) -> Unit)? = null
+    ) {
+        val user = currentUser.value
+        val authorName = user?.displayName?.ifBlank { "Admin" } ?: "Admin"
+        val authorRole = if (user?.isAdmin == true) "ADMIN" else "SUB_ADMIN"
+        val record = PmcTaxClearanceRecord(
+            financialYear = currentFinancialYear,
+            isPaid = true,
+            amountPaid = amount,
+            receiptNumber = receiptNumber.trim(),
+            paidDate = if (paidDate.isNotBlank()) paidDate.trim() else SimpleDateFormat("dd MMM yyyy", Locale.getDefault()).format(Date()),
+            paidBy = authorName,
+            paidByRole = authorRole,
+            paymentMode = paymentMode.trim(),
+            notes = notes.trim(),
+            updatedAt = System.currentTimeMillis()
+        )
+        sync.savePmcTaxClearance(record) { success ->
+            if (success) {
+                viewModelScope.launch {
+                    sync.logActivity(ActivityLog(
+                        id = "act_${System.currentTimeMillis()}_${UUID.randomUUID().toString().take(4)}",
+                        timestamp = System.currentTimeMillis(),
+                        userName = authorName,
+                        userRole = authorRole,
+                        actionType = "PMC_TAX_PAID",
+                        title = "PMC Tax Paid (FY $currentFinancialYear)",
+                        details = "Amount: ₹${amount.toInt()}, Receipt: $receiptNumber"
+                    ))
+                }
+            }
+            onComplete?.invoke(success)
+        }
+    }
+
+    fun postNotice(
+        title: String,
+        message: String,
+        category: String,
+        priority: String = "NORMAL",
+        dueDate: String = "",
+        onComplete: ((Boolean) -> Unit)? = null
+    ) {
+        val user = currentUser.value
+        val authorName = user?.displayName?.ifBlank { "Admin" } ?: "Admin"
+        val authorRole = if (user?.isAdmin == true) "ADMIN" else "SUB_ADMIN"
+        val notice = MarketNotice(
+            id = "notice_${System.currentTimeMillis()}_${UUID.randomUUID().toString().take(4)}",
+            title = title.trim(),
+            message = message.trim(),
+            category = category.trim(),
+            priority = priority.trim(),
+            authorName = authorName,
+            authorRole = authorRole,
+            authorDeviceId = sync.getLocalDeviceId(),
+            dueDate = dueDate.trim(),
+            createdAt = System.currentTimeMillis()
+        )
+        sync.saveNotice(notice) { success ->
+            if (success) {
+                viewModelScope.launch {
+                    sync.logActivity(ActivityLog(
+                        id = "act_${System.currentTimeMillis()}_${UUID.randomUUID().toString().take(4)}",
+                        timestamp = System.currentTimeMillis(),
+                        userName = authorName,
+                        userRole = authorRole,
+                        actionType = "POST_NOTICE",
+                        title = "Notice: ${notice.title}",
+                        details = notice.message.take(80)
+                    ))
+                }
+            }
+            onComplete?.invoke(success)
+        }
+    }
+
+    fun deleteNotice(noticeId: String, onComplete: ((Boolean) -> Unit)? = null) {
+        val user = currentUser.value
+        sync.deleteNotice(noticeId) { success ->
+            if (success) {
+                viewModelScope.launch {
+                    sync.logActivity(ActivityLog(
+                        id = "act_${System.currentTimeMillis()}_${UUID.randomUUID().toString().take(4)}",
+                        timestamp = System.currentTimeMillis(),
+                        userName = user?.displayName ?: "User",
+                        userRole = if (user?.isAdmin == true) "ADMIN" else "SUB_ADMIN",
+                        actionType = "DELETE_NOTICE",
+                        title = "Deleted Notice",
+                        details = "Notice ID: $noticeId removed"
+                    ))
+                }
+            }
+            onComplete?.invoke(success)
+        }
+    }
 
     fun publishAppUpdate(info: AppUpdateInfo, onComplete: ((Boolean) -> Unit)? = null) {
         sync.publishAppUpdateInfo(info, onComplete)

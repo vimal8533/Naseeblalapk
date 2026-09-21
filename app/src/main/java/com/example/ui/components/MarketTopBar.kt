@@ -22,6 +22,7 @@ import androidx.compose.material.icons.filled.Apartment
 import androidx.compose.material.icons.filled.CloudDone
 import androidx.compose.material.icons.filled.CloudOff
 import androidx.compose.material.icons.filled.CloudSync
+import androidx.compose.material.icons.filled.Notifications
 import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.Shield
 import androidx.compose.material.icons.filled.Store
@@ -59,6 +60,8 @@ fun MarketTopBar(
     onRefresh: () -> Unit,
     workspaceMode: AppWorkspaceMode = AppWorkspaceMode.PUBLIC_MARKET,
     onToggleWorkspace: (() -> Unit)? = null,
+    unreadNoticeCount: Int = 0,
+    onOpenNotifications: (() -> Unit)? = null,
     modifier: Modifier = Modifier
 ) {
     val isPersonalMode = workspaceMode == AppWorkspaceMode.PRIVATE_PERSONAL
@@ -239,6 +242,39 @@ fun MarketTopBar(
                             color = Color.White.copy(alpha = 0.95f),
                             fontSize = 10.5.sp,
                             fontWeight = FontWeight.SemiBold
+                        )
+                    }
+                }
+
+                // Notice Board / Announcements Bell Button
+                Box(
+                    modifier = Modifier
+                        .size(30.dp)
+                        .clip(RoundedCornerShape(8.dp))
+                        .background(if (unreadNoticeCount > 0) GoldAccent.copy(alpha = 0.2f) else Color.White.copy(alpha = 0.08f))
+                        .border(
+                            0.5.dp,
+                            if (unreadNoticeCount > 0) GoldAccent else Color.White.copy(alpha = 0.15f),
+                            RoundedCornerShape(8.dp)
+                        )
+                        .clickable { onOpenNotifications?.invoke() }
+                        .testTag("notice_board_topbar_button"),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Icon(
+                        imageVector = Icons.Filled.Notifications,
+                        contentDescription = "Notice Board",
+                        tint = if (unreadNoticeCount > 0) GoldAccent else Color.White.copy(alpha = 0.9f),
+                        modifier = Modifier.size(16.dp)
+                    )
+
+                    if (unreadNoticeCount > 0) {
+                        Box(
+                            modifier = Modifier
+                                .align(Alignment.TopEnd)
+                                .size(8.dp)
+                                .clip(CircleShape)
+                                .background(Color(0xFFEF4444))
                         )
                     }
                 }

@@ -8,7 +8,9 @@ import android.net.NetworkRequest
 import android.util.Log
 import com.example.model.ActivityLog
 import com.example.model.AppUpdateInfo
+import com.example.model.MarketNotice
 import com.example.model.MonthlyReminderRecord
+import com.example.model.PmcTaxClearanceRecord
 import com.example.model.RentRecord
 import com.example.model.Shop
 import com.example.model.SubAdminUser
@@ -99,6 +101,12 @@ class FirebaseRealtimeSync(private val context: Context) {
 
     private val _monthlyReminders = MutableStateFlow<Map<String, MonthlyReminderRecord>>(emptyMap())
     val monthlyReminders: StateFlow<Map<String, MonthlyReminderRecord>> = _monthlyReminders.asStateFlow()
+
+    private val _marketNotices = MutableStateFlow<List<MarketNotice>>(emptyList())
+    val marketNotices: StateFlow<List<MarketNotice>> = _marketNotices.asStateFlow()
+
+    private val _pmcTaxClearances = MutableStateFlow<Map<String, PmcTaxClearanceRecord>>(emptyMap())
+    val pmcTaxClearances: StateFlow<Map<String, PmcTaxClearanceRecord>> = _pmcTaxClearances.asStateFlow()
 
     private val _appUpdateInfo = MutableStateFlow<AppUpdateInfo?>(null)
     val appUpdateInfo: StateFlow<AppUpdateInfo?> = _appUpdateInfo.asStateFlow()
@@ -380,6 +388,54 @@ class FirebaseRealtimeSync(private val context: Context) {
                     _monthlyReminders.value = current
                     persistCurrentStateToCache()
                 }
+                path.startsWith("/market_notices/") && data is JSONObject -> {
+                    val noticeId = path.removePrefix("/market_notices/")
+                    val notice = parseMarketNotice(noticeId, data)
+                    val current = _marketNotices.value.toMutableList()
+                    val isNew = current.none { it.id == notice.id }
+                    current.removeAll { it.id == notice.id }
+                    current.add(0, notice)
+                    _marketNotices.value = current.sortedWith(
+                        compareByDescending<MarketNotice> { it.isPinned }
+                            .thenByDescending { it.createdAt }
+                    )
+                    persistCurrentStateToCache()
+
+                    val myDevId = getLocalDeviceId()
+                    val isFromAnotherDevice = notice.authorDeviceId.isNotBlank() && notice.authorDeviceId != myDevId
+                    val isRecent = (System.currentTimeMillis() - notice.createdAt) < 180_000
+
+                    if (isNew && (isFromAnotherDevice || notice.authorDeviceId.isBlank()) && isRecent) {
+                        val alertTitle = "📢 " + notice.title
+                        val alertMsg = if (notice.message.isNotBlank()) notice.message else "Naya market notice aaya hai."
+                        NotificationHelper.showUpdateNotification(
+                            context = context,
+                            title = alertTitle,
+                            message = alertMsg,
+                            notificationId = (notice.id.hashCode() and 0x7FFFFFFF)
+                        )
+                    }
+                }
+                path.startsWith("/market_notices/") && (data == null || data == JSONObject.NULL) -> {
+                    val noticeId = path.removePrefix("/market_notices/")
+                    _marketNotices.value = _marketNotices.value.filterNot { it.id == noticeId }
+                    persistCurrentStateToCache()
+                }
+                path.startsWith("/pmc_tax_clearances/") && data is JSONObject -> {
+                    val fy = path.removePrefix("/pmc_tax_clearances/")
+                    val record = parsePmcTaxClearance(fy, data)
+                    val map = _pmcTaxClearances.value.toMutableMap()
+                    map[record.financialYear] = record
+                    _pmcTaxClearances.value = map
+                    persistCurrentStateToCache()
+                }
+                path.startsWith("/pmc_tax_clearances/") && (data == null || data == JSONObject.NULL) -> {
+                    val fy = path.removePrefix("/pmc_tax_clearances/")
+                    val map = _pmcTaxClearances.value.toMutableMap()
+                    map.remove(fy)
+                    _pmcTaxClearances.value = map
+                    persistCurrentStateToCache()
+                }
                 path.startsWith("/app_version_info") && data is JSONObject -> {
                     _appUpdateInfo.value = parseAppUpdateInfo(data)
                 }
@@ -540,7 +596,40 @@ class FirebaseRealtimeSync(private val context: Context) {
             }
             _monthlyReminders.value = loadedReminders
 
-            // 7. App Version Update Info
+            // 7. Market Notices / Announcements
+            val noticesObj = root.optJSONObject("market_notices")
+            val loadedNotices = mutableListOf<MarketNotice>()
+            if (noticesObj != null) {
+                val keys = noticesObj.keys()
+                while (keys.hasNext()) {
+                    val key = keys.next()
+                    val no = noticesObj.optJSONObject(key)
+                    if (no != null) {
+                        loadedNotices.add(parseMarketNotice(key, no))
+                    }
+                }
+            }
+            _marketNotices.value = loadedNotices.sortedWith(
+                compareByDescending<MarketNotice> { it.isPinned }
+                    .thenByDescending { it.createdAt }
+            )
+
+            // 8. Annual PMC Tax Clearances
+            val clearancesObj = root.optJSONObject("pmc_tax_clearances")
+            val loadedClearances = mutableMapOf<String, PmcTaxClearanceRecord>()
+            if (clearancesObj != null) {
+                val keys = clearancesObj.keys()
+                while (keys.hasNext()) {
+                    val key = keys.next()
+                    val cObj = clearancesObj.optJSONObject(key)
+                    if (cObj != null) {
+                        loadedClearances[key] = parsePmcTaxClearance(key, cObj)
+                    }
+                }
+            }
+            _pmcTaxClearances.value = loadedClearances
+
+            // 9. App Version Update Info
             val versionObj = root.optJSONObject("app_version_info")
             if (versionObj != null) {
                 _appUpdateInfo.value = parseAppUpdateInfo(versionObj)
@@ -687,6 +776,110 @@ class FirebaseRealtimeSync(private val context: Context) {
             recipientsCount = obj.optInt("recipientsCount", 0),
             isSent = obj.optBoolean("isSent", true)
         )
+    }
+
+    private fun parseMarketNotice(key: String, obj: JSONObject): MarketNotice {
+        return MarketNotice(
+            id = obj.optString("id", key),
+            title = obj.optString("title", ""),
+            message = obj.optString("message", ""),
+            category = obj.optString("category", "TAX"),
+            priority = obj.optString("priority", "NORMAL"),
+            authorName = obj.optString("authorName", "Admin"),
+            authorRole = obj.optString("authorRole", "ADMIN"),
+            authorDeviceId = obj.optString("authorDeviceId", ""),
+            dueDate = obj.optString("dueDate", ""),
+            createdAt = obj.optLong("createdAt", System.currentTimeMillis()),
+            isPinned = obj.optBoolean("isPinned", false),
+            targetAudience = obj.optString("targetAudience", "ALL")
+        )
+    }
+
+    fun saveNotice(notice: MarketNotice, onComplete: ((Boolean) -> Unit)? = null) {
+        scope.launch {
+            val json = JSONObject().apply {
+                put("id", notice.id)
+                put("title", notice.title)
+                put("message", notice.message)
+                put("category", notice.category)
+                put("priority", notice.priority)
+                put("authorName", notice.authorName)
+                put("authorRole", notice.authorRole)
+                put("authorDeviceId", notice.authorDeviceId)
+                put("dueDate", notice.dueDate)
+                put("createdAt", notice.createdAt)
+                put("isPinned", notice.isPinned)
+                put("targetAudience", notice.targetAudience)
+            }
+            val success = sendPutRequest("market_notices/${notice.id}", json.toString())
+            if (success) {
+                val list = _marketNotices.value.filterNot { it.id == notice.id }.toMutableList()
+                list.add(0, notice)
+                _marketNotices.value = list.sortedWith(
+                    compareByDescending<MarketNotice> { it.isPinned }
+                        .thenByDescending { it.createdAt }
+                )
+                persistCurrentStateToCache()
+            }
+            withContext(Dispatchers.Main) {
+                onComplete?.invoke(success)
+            }
+        }
+    }
+
+    fun deleteNotice(noticeId: String, onComplete: ((Boolean) -> Unit)? = null) {
+        scope.launch {
+            val success = sendDeleteRequest("market_notices/$noticeId")
+            if (success) {
+                _marketNotices.value = _marketNotices.value.filterNot { it.id == noticeId }
+                persistCurrentStateToCache()
+            }
+            withContext(Dispatchers.Main) {
+                onComplete?.invoke(success)
+            }
+        }
+    }
+
+    private fun parsePmcTaxClearance(key: String, obj: JSONObject): PmcTaxClearanceRecord {
+        return PmcTaxClearanceRecord(
+            financialYear = obj.optString("financialYear", key),
+            isPaid = obj.optBoolean("isPaid", false),
+            amountPaid = obj.optDouble("amountPaid", 0.0),
+            receiptNumber = obj.optString("receiptNumber", ""),
+            paidDate = obj.optString("paidDate", ""),
+            paidBy = obj.optString("paidBy", ""),
+            paidByRole = obj.optString("paidByRole", "ADMIN"),
+            paymentMode = obj.optString("paymentMode", "CASH"),
+            notes = obj.optString("notes", ""),
+            updatedAt = obj.optLong("updatedAt", System.currentTimeMillis())
+        )
+    }
+
+    fun savePmcTaxClearance(record: PmcTaxClearanceRecord, onComplete: ((Boolean) -> Unit)? = null) {
+        scope.launch {
+            val json = JSONObject().apply {
+                put("financialYear", record.financialYear)
+                put("isPaid", record.isPaid)
+                put("amountPaid", record.amountPaid)
+                put("receiptNumber", record.receiptNumber)
+                put("paidDate", record.paidDate)
+                put("paidBy", record.paidBy)
+                put("paidByRole", record.paidByRole)
+                put("paymentMode", record.paymentMode)
+                put("notes", record.notes)
+                put("updatedAt", record.updatedAt)
+            }
+            val success = sendPutRequest("pmc_tax_clearances/${record.financialYear}", json.toString())
+            if (success) {
+                val map = _pmcTaxClearances.value.toMutableMap()
+                map[record.financialYear] = record
+                _pmcTaxClearances.value = map
+                persistCurrentStateToCache()
+            }
+            withContext(Dispatchers.Main) {
+                onComplete?.invoke(success)
+            }
+        }
     }
 
     private fun parseAppUpdateInfo(obj: JSONObject): AppUpdateInfo {
@@ -1198,6 +1391,42 @@ class FirebaseRealtimeSync(private val context: Context) {
                 })
             }
             root.put("monthly_reminders", monthlyRemObj)
+
+            val noticesObj = JSONObject()
+            for (notice in _marketNotices.value) {
+                noticesObj.put(notice.id, JSONObject().apply {
+                    put("id", notice.id)
+                    put("title", notice.title)
+                    put("message", notice.message)
+                    put("category", notice.category)
+                    put("priority", notice.priority)
+                    put("authorName", notice.authorName)
+                    put("authorRole", notice.authorRole)
+                    put("authorDeviceId", notice.authorDeviceId)
+                    put("dueDate", notice.dueDate)
+                    put("createdAt", notice.createdAt)
+                    put("isPinned", notice.isPinned)
+                    put("targetAudience", notice.targetAudience)
+                })
+            }
+            root.put("market_notices", noticesObj)
+
+            val clearancesObj = JSONObject()
+            for ((key, clearance) in _pmcTaxClearances.value) {
+                clearancesObj.put(key, JSONObject().apply {
+                    put("financialYear", clearance.financialYear)
+                    put("isPaid", clearance.isPaid)
+                    put("amountPaid", clearance.amountPaid)
+                    put("receiptNumber", clearance.receiptNumber)
+                    put("paidDate", clearance.paidDate)
+                    put("paidBy", clearance.paidBy)
+                    put("paidByRole", clearance.paidByRole)
+                    put("paymentMode", clearance.paymentMode)
+                    put("notes", clearance.notes)
+                    put("updatedAt", clearance.updatedAt)
+                })
+            }
+            root.put("pmc_tax_clearances", clearancesObj)
 
             saveToCache(root.toString())
         } catch (e: Exception) {

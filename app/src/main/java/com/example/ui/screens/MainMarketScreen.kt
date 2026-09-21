@@ -1,5 +1,6 @@
 package com.example.ui.screens
 
+import android.content.Context
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -54,6 +55,7 @@ import com.example.model.UserRole
 import com.example.model.UserSession
 import com.example.ui.components.AppUpdateDialog
 import com.example.ui.components.MarketTopBar
+import com.example.ui.components.NotificationPanelDialog
 import com.example.ui.theme.GoldAccent
 import com.example.ui.theme.NavyDark
 import com.example.ui.theme.NavyPrimary
@@ -94,6 +96,11 @@ fun MainMarketScreen(
     val isLoading by viewModel.isLoading.collectAsState()
     val workspaceMode by viewModel.workspaceMode.collectAsState()
     val appUpdateInfo by viewModel.appUpdateInfo.collectAsState()
+    val marketNotices by viewModel.marketNotices.collectAsState()
+    val unreadNoticesCount by viewModel.unreadNoticesCount.collectAsState()
+    val isPmcTaxDue by viewModel.isPmcTaxDueForCurrentYear.collectAsState()
+    val currentPmcClearance by viewModel.currentPmcClearance.collectAsState()
+    var showNotificationPanel by remember { mutableStateOf(false) }
     var updateDismissed by remember { mutableStateOf(false) }
     val context = LocalContext.current
 
@@ -106,6 +113,24 @@ fun MainMarketScreen(
                 message = "Version ${info.latestVersionName} update karne ke liye tap karein.",
                 notificationId = 999999
             )
+        }
+    }
+
+    LaunchedEffect(isPmcTaxDue) {
+        if (isPmcTaxDue) {
+            val prefs = context.getSharedPreferences("nlm_auth_prefs", Context.MODE_PRIVATE)
+            val lastNotifTime = prefs.getLong("last_pmc_due_notif_time", 0L)
+            val now = System.currentTimeMillis()
+            // Alert once every 24 hours if still unpaid during 1 Apr - 30 Sept
+            if (now - lastNotifTime > 24 * 60 * 60 * 1000L) {
+                NotificationHelper.showUpdateNotification(
+                    context = context,
+                    title = "🏛️ Naseeb Lal Market: PMC Tax Due!",
+                    message = "FY ${viewModel.currentFinancialYear} holding tax bhugtan window (1 Apr - 30 Sept) khula hai. Kripya jama karein.",
+                    notificationId = 889911
+                )
+                prefs.edit().putLong("last_pmc_due_notif_time", now).apply()
+            }
         }
     }
 
@@ -136,7 +161,12 @@ fun MainMarketScreen(
                 syncStatus = syncStatus,
                 onRefresh = { viewModel.forceRefresh() },
                 workspaceMode = workspaceMode,
-                onToggleWorkspace = { viewModel.toggleWorkspace() }
+                onToggleWorkspace = { viewModel.toggleWorkspace() },
+                unreadNoticeCount = unreadNoticesCount,
+                onOpenNotifications = {
+                    showNotificationPanel = true
+                    viewModel.markNoticesAsSeen()
+                }
             )
         },
         bottomBar = {
@@ -393,6 +423,27 @@ fun MainMarketScreen(
         AppUpdateDialog(
             updateInfo = currentUpdate,
             onDismiss = { updateDismissed = true }
+        )
+    }
+
+    // Notice Board & Announcements Panel Dialog
+    if (showNotificationPanel) {
+        NotificationPanelDialog(
+            notices = marketNotices,
+            currentUser = currentUser,
+            isPmcTaxDue = isPmcTaxDue,
+            currentPmcClearance = currentPmcClearance,
+            currentFinancialYear = viewModel.currentFinancialYear,
+            onDismiss = { showNotificationPanel = false },
+            onPostNotice = { title, message, category, priority, dueDate ->
+                viewModel.postNotice(title, message, category, priority, dueDate)
+            },
+            onDeleteNotice = { noticeId ->
+                viewModel.deleteNotice(noticeId)
+            },
+            onMarkPmcTaxPaid = { amount, receiptNumber, paidDate, paymentMode, notes ->
+                viewModel.markPmcTaxPaid(amount, receiptNumber, paidDate, paymentMode, notes)
+            }
         )
     }
 }

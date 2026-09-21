@@ -132,4 +132,29 @@ object PmcTaxHelper {
             else -> "< 1 mo"
         }
     }
+
+    /**
+     * Returns current Indian Financial Year string, e.g. "2026-2027".
+     * FY starts on April 1 and ends on March 31.
+     */
+    fun getCurrentFinancialYear(referenceDate: Date = Date()): String {
+        val cal = Calendar.getInstance().apply { time = referenceDate }
+        val year = cal.get(Calendar.YEAR)
+        val month = cal.get(Calendar.MONTH) // Jan=0, Apr=3
+        return if (month >= Calendar.APRIL) {
+            "$year-${year + 1}"
+        } else {
+            "${year - 1}-$year"
+        }
+    }
+
+    /**
+     * Checks if current date falls within the PMC Tax Payment Window:
+     * 1st April to 30th September (inclusive).
+     */
+    fun isPmcTaxNotificationPeriod(referenceDate: Date = Date()): Boolean {
+        val cal = Calendar.getInstance().apply { time = referenceDate }
+        val month = cal.get(Calendar.MONTH) // Calendar.APRIL (3) to Calendar.SEPTEMBER (8)
+        return month in Calendar.APRIL..Calendar.SEPTEMBER
+    }
 }
