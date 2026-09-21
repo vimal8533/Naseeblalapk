@@ -435,7 +435,21 @@ fun MainMarketScreen(
     if (currentUpdate != null && currentUpdate.latestVersionCode > BuildConfig.VERSION_CODE && !updateDismissed) {
         AppUpdateDialog(
             updateInfo = currentUpdate,
-            onDismiss = { updateDismissed = true }
+            isSuperAdmin = currentUser.isAdmin,
+            onDismiss = { updateDismissed = true },
+            onResetUpdateAlert = {
+                val resetInfo = com.example.model.AppUpdateInfo(
+                    latestVersionCode = BuildConfig.VERSION_CODE,
+                    latestVersionName = BuildConfig.VERSION_NAME,
+                    updateTitle = "",
+                    updateMessage = "",
+                    downloadUrl = "",
+                    isMandatory = false,
+                    releasedDate = ""
+                )
+                viewModel.publishAppUpdate(resetInfo)
+                updateDismissed = true
+            }
         )
     }
 

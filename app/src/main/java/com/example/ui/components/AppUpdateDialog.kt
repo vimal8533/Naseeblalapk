@@ -65,14 +65,14 @@ import java.util.Locale
 @Composable
 fun AppUpdateDialog(
     updateInfo: AppUpdateInfo,
-    onDismiss: () -> Unit
+    isSuperAdmin: Boolean = false,
+    onDismiss: () -> Unit,
+    onResetUpdateAlert: (() -> Unit)? = null
 ) {
     val context = LocalContext.current
 
     AlertDialog(
-        onDismissRequest = {
-            if (!updateInfo.isMandatory) onDismiss()
-        },
+        onDismissRequest = onDismiss,
         title = {
             Row(
                 verticalAlignment = Alignment.CenterVertically,
@@ -331,7 +331,17 @@ fun AppUpdateDialog(
             }
         },
         dismissButton = {
-            if (!updateInfo.isMandatory) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                if (isSuperAdmin && onResetUpdateAlert != null) {
+                    TextButton(
+                        onClick = {
+                            onResetUpdateAlert()
+                        }
+                    ) {
+                        Text("Reset / Clear Update Alert", color = Color(0xFFDC2626), fontSize = 11.5.sp)
+                    }
+                    Spacer(modifier = Modifier.width(4.dp))
+                }
                 TextButton(onClick = onDismiss) {
                     Text("Baad me Karein", color = Color.Gray)
                 }
@@ -528,7 +538,7 @@ fun BroadcastUpdateDialog(
                         onDismiss()
                     }
                 ) {
-                    Text("Clear Alert (Reset v2.0)", color = Color(0xFFDC2626), fontSize = 12.sp)
+                    Text("Clear Alert (Reset v${BuildConfig.VERSION_NAME})", color = Color(0xFFDC2626), fontSize = 12.sp)
                 }
                 Spacer(modifier = Modifier.width(4.dp))
                 TextButton(onClick = onDismiss) {
