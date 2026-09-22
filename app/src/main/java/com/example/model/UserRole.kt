@@ -13,7 +13,8 @@ data class UserSession(
     val subAdminId: String = "",
     val sessionId: String = "",
     val passwordSnapshot: String = "",
-    val canManagePersonalTenants: Boolean = false
+    val canManagePersonalTenants: Boolean = false,
+    val canDelegateAuthority: Boolean = false
 ) {
     val isAdmin: Boolean get() = role == UserRole.ADMIN
     val isSubAdmin: Boolean get() = role == UserRole.SUB_ADMIN

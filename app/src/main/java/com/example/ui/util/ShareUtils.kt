@@ -39,8 +39,17 @@ object ShareUtils {
                     appendLine("⏰ *Due Date:* ${rent.dueDate}")
                 }
                 appendLine("━━━━━━━━━━━━━━━━━━")
+                val echoSlug = "${rent.tenantId}_${rent.month}_${rent.year}".replace(" ", "_")
+                val portalLink = "https://naseeblalmarket.web.app/portal?echo=$echoSlug"
+                appendLine("🔗 *Your Private Portal & Payment Status Link:*")
+                appendLine(portalLink)
+                appendLine("*(Click link to set promise payment date or view receipt after full payment)*")
+                appendLine("━━━━━━━━━━━━━━━━━━")
                 appendLine("Kindly clear the pending balance at your earliest convenience.")
-                appendLine("If already paid, kindly share the payment reference. Thank you!")
+                appendLine("⚠️ *Important:* No online payment gateway. Please contact authorized management for payment.")
+                appendLine("If already paid, click 'I Have Paid' on the link or contact us.")
+                appendLine()
+                appendLine("📍 *Residential Management*")
             } else {
                 val baseRent = (rent.amountDue - rent.pmcTax).coerceAtLeast(0.0)
                 appendLine("🏪 *NASEEB LAL MARKET*")
@@ -66,8 +75,15 @@ object ShareUtils {
                     appendLine("⏰ *Due Date:* ${rent.dueDate}")
                 }
                 appendLine("━━━━━━━━━━━━━━━━━━")
+                val echoSlug = "${rent.tenantId}_${rent.month}_${rent.year}".replace(" ", "_")
+                val portalLink = "https://naseeblalmarket.web.app/portal?echo=$echoSlug"
+                appendLine("🔗 *Your Unique Shop Portal Link:*")
+                appendLine(portalLink)
+                appendLine("*(Click link to set promise payment date or view receipt after full payment)*")
+                appendLine("━━━━━━━━━━━━━━━━━━")
                 appendLine("Kindly clear the pending balance at your earliest convenience.")
-                appendLine("If already paid, kindly share the payment reference. Thank you!")
+                appendLine("⚠️ *Important:* No online payment. Payment must be made directly to authorized market management.")
+                appendLine("If already paid, click 'I Have Paid' on the link. Thank you!")
                 appendLine()
                 appendLine("📍 *Naseeb Lal Market Management*")
             }

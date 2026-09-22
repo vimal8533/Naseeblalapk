@@ -15,6 +15,7 @@ import com.example.model.RentRecord
 import com.example.model.Shop
 import com.example.model.SubAdminUser
 import com.example.model.Tenant
+import com.example.model.TenantEchoRecord
 import com.example.util.NotificationHelper
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -110,6 +111,9 @@ class FirebaseRealtimeSync(private val context: Context) {
 
     private val _appUpdateInfo = MutableStateFlow<AppUpdateInfo?>(null)
     val appUpdateInfo: StateFlow<AppUpdateInfo?> = _appUpdateInfo.asStateFlow()
+
+    private val _tenantEchoRecords = MutableStateFlow<Map<String, TenantEchoRecord>>(emptyMap())
+    val tenantEchoRecords: StateFlow<Map<String, TenantEchoRecord>> = _tenantEchoRecords.asStateFlow()
 
     private val scope = CoroutineScope(Dispatchers.IO + Job())
     private var sseJob: Job? = null
@@ -439,6 +443,64 @@ class FirebaseRealtimeSync(private val context: Context) {
                 path.startsWith("/app_version_info") && data is JSONObject -> {
                     _appUpdateInfo.value = parseAppUpdateInfo(data)
                 }
+                path.startsWith("/tenant_echo/") && data is JSONObject -> {
+                    val echoKey = path.removePrefix("/tenant_echo/").replace("/", "_")
+                    val echoRecord = parseTenantEchoRecord(echoKey, data)
+                    val map = _tenantEchoRecords.value.toMutableMap()
+                    val prev = map[echoKey]
+                    map[echoKey] = echoRecord
+                    _tenantEchoRecords.value = map
+
+                    // Also mirror into matching RentRecord if present
+                    val matchingRent = _rents.value.find {
+                        (it.tenantId == echoRecord.tenantId && it.month.equals(echoRecord.month, ignoreCase = true) && it.year == echoRecord.year) ||
+                        it.id == echoRecord.id || it.id.endsWith(echoKey)
+                    }
+                    if (matchingRent != null) {
+                        val updatedRent = matchingRent.copy(
+                            promisedDate = if (echoRecord.promisedDate.isNotBlank()) echoRecord.promisedDate else matchingRent.promisedDate,
+                            promisedNote = if (echoRecord.promisedNote.isNotBlank()) echoRecord.promisedNote else matchingRent.promisedNote,
+                            promisedAt = if (echoRecord.promisedAt > 0L) echoRecord.promisedAt else matchingRent.promisedAt,
+                            tenantClaimedPaid = echoRecord.claimedPaid || matchingRent.tenantClaimedPaid,
+                            tenantClaimedNote = if (echoRecord.claimedPaidNote.isNotBlank()) echoRecord.claimedPaidNote else matchingRent.tenantClaimedNote,
+                            tenantClaimedAt = if (echoRecord.claimedPaidAt > 0L) echoRecord.claimedPaidAt else matchingRent.tenantClaimedAt
+                        )
+                        val rList = _rents.value.toMutableList()
+                        val rIdx = rList.indexOfFirst { it.id == matchingRent.id }
+                        if (rIdx >= 0) {
+                            rList[rIdx] = updatedRent
+                            _rents.value = rList
+                        }
+                    }
+
+                    // Push alert notification to admin/sub-admin if tenant updated promise or claimed payment
+                    if (prev == null || (!prev.claimedPaid && echoRecord.claimedPaid) || (prev.promisedDate != echoRecord.promisedDate && echoRecord.promisedDate.isNotBlank())) {
+                        val alertTitle = if (echoRecord.claimedPaid) {
+                            "💵 Tenant Claimed Paid: ${echoRecord.tenantName}"
+                        } else {
+                            "📅 Promise Date Given: ${echoRecord.tenantName}"
+                        }
+                        val alertMsg = if (echoRecord.claimedPaid) {
+                            "Unit: ${echoRecord.shopNumber} (${echoRecord.month} ${echoRecord.year}) claims payment is done. Note: ${echoRecord.claimedPaidNote.ifBlank { "Verify and confirm" }}"
+                        } else {
+                            "Unit: ${echoRecord.shopNumber} committed to pay on ${echoRecord.promisedDate}. Note: ${echoRecord.promisedNote}"
+                        }
+                        NotificationHelper.showUpdateNotification(
+                            context = context,
+                            title = alertTitle,
+                            message = alertMsg,
+                            notificationId = (echoRecord.id.hashCode() and 0x7FFFFFFF)
+                        )
+                    }
+                    persistCurrentStateToCache()
+                }
+                path.startsWith("/tenant_echo/") && (data == null || data == JSONObject.NULL) -> {
+                    val echoKey = path.removePrefix("/tenant_echo/").replace("/", "_")
+                    val map = _tenantEchoRecords.value.toMutableMap()
+                    map.remove(echoKey)
+                    _tenantEchoRecords.value = map
+                    persistCurrentStateToCache()
+                }
                 else -> {
                     // Fallback to full snapshot refresh
                     scope.launch { fetchInitialSnapshot() }
@@ -635,6 +697,34 @@ class FirebaseRealtimeSync(private val context: Context) {
                 _appUpdateInfo.value = parseAppUpdateInfo(versionObj)
             }
 
+            // 10. Tenant Echo Records
+            val echoObj = root.optJSONObject("tenant_echo")
+            val loadedEcho = mutableMapOf<String, TenantEchoRecord>()
+            if (echoObj != null) {
+                val keys = echoObj.keys()
+                while (keys.hasNext()) {
+                    val key = keys.next()
+                    val eVal = echoObj.opt(key)
+                    if (eVal is JSONObject) {
+                        // could be direct or nested by month
+                        if (eVal.has("tenantId") || eVal.has("amountDue") || eVal.has("promisedDate")) {
+                            loadedEcho[key] = parseTenantEchoRecord(key, eVal)
+                        } else {
+                            val subKeys = eVal.keys()
+                            while (subKeys.hasNext()) {
+                                val sKey = subKeys.next()
+                                val sObj = eVal.optJSONObject(sKey)
+                                if (sObj != null) {
+                                    val fullKey = "${key}_${sKey}"
+                                    loadedEcho[fullKey] = parseTenantEchoRecord(fullKey, sObj)
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+            _tenantEchoRecords.value = loadedEcho
+
         } catch (e: Exception) {
             Log.e(tag, "parseFullDatabase error: ${e.message}")
         }
@@ -702,6 +792,8 @@ class FirebaseRealtimeSync(private val context: Context) {
             lastModifiedBy = obj.optString("lastModifiedBy", ""),
             exitDate = obj.optString("exitDate", ""),
             exitReason = obj.optString("exitReason", ""),
+            promisedPaymentDate = obj.optString("promisedPaymentDate", ""),
+            promisedPaymentNote = obj.optString("promisedPaymentNote", ""),
             updatedAt = obj.optLong("updatedAt", System.currentTimeMillis())
         )
     }
@@ -731,11 +823,25 @@ class FirebaseRealtimeSync(private val context: Context) {
             notes = obj.optString("notes", ""),
             isPersonal = obj.optBoolean("isPersonal", false),
             ownerSubAdminId = obj.optString("ownerSubAdminId", ""),
+            promisedDate = obj.optString("promisedDate", ""),
+            promisedNote = obj.optString("promisedNote", ""),
+            promisedAt = obj.optLong("promisedAt", 0L),
+            tenantClaimedPaid = obj.optBoolean("tenantClaimedPaid", false),
+            tenantClaimedNote = obj.optString("tenantClaimedNote", ""),
+            tenantClaimedAt = obj.optLong("tenantClaimedAt", 0L),
             updatedAt = obj.optLong("updatedAt", System.currentTimeMillis())
         )
     }
 
     private fun parseSubAdmin(key: String, obj: JSONObject): SubAdminUser {
+        val delegatedList = mutableListOf<String>()
+        val arr = obj.optJSONArray("delegatedToUsernames")
+        if (arr != null) {
+            for (i in 0 until arr.length()) {
+                val u = arr.optString(i, "").trim()
+                if (u.isNotBlank()) delegatedList.add(u)
+            }
+        }
         return SubAdminUser(
             id = obj.optString("id", key),
             username = obj.optString("username", ""),
@@ -744,6 +850,8 @@ class FirebaseRealtimeSync(private val context: Context) {
             phone = obj.optString("phone", ""),
             isActive = obj.optBoolean("isActive", true),
             canManagePersonalTenants = obj.optBoolean("canManagePersonalTenants", false),
+            canDelegateAuthority = obj.optBoolean("canDelegateAuthority", false),
+            delegatedToUsernames = delegatedList,
             createdAt = obj.optLong("createdAt", System.currentTimeMillis()),
             lastActiveAt = obj.optLong("lastActiveAt", 0L),
             activeSessionId = obj.optString("activeSessionId", "")
@@ -944,6 +1052,73 @@ class FirebaseRealtimeSync(private val context: Context) {
         }
     }
 
+    private fun parseTenantEchoRecord(key: String, obj: JSONObject): TenantEchoRecord {
+        return TenantEchoRecord(
+            id = obj.optString("id", key),
+            tenantId = obj.optString("tenantId", ""),
+            tenantName = obj.optString("tenantName", ""),
+            tenantPhone = obj.optString("tenantPhone", ""),
+            shopNumber = obj.optString("shopNumber", ""),
+            month = obj.optString("month", "September"),
+            year = obj.optInt("year", 2026),
+            amountDue = obj.optDouble("amountDue", 0.0),
+            amountPaid = obj.optDouble("amountPaid", 0.0),
+            pendingAmount = obj.optDouble("pendingAmount", 0.0),
+            isPersonal = obj.optBoolean("isPersonal", false),
+            isFullPaid = obj.optBoolean("isFullPaid", false),
+            promisedDate = obj.optString("promisedDate", ""),
+            promisedNote = obj.optString("promisedNote", ""),
+            promisedAt = obj.optLong("promisedAt", 0L),
+            claimedPaid = obj.optBoolean("claimedPaid", false),
+            claimedPaidNote = obj.optString("claimedPaidNote", ""),
+            claimedPaidAt = obj.optLong("claimedPaidAt", 0L),
+            isVerifiedByAdmin = obj.optBoolean("isVerifiedByAdmin", false),
+            verifiedBy = obj.optString("verifiedBy", ""),
+            receiptNumber = obj.optString("receiptNumber", ""),
+            lastUpdated = obj.optLong("lastUpdated", System.currentTimeMillis())
+        )
+    }
+
+    fun saveTenantEcho(record: TenantEchoRecord, onComplete: ((Boolean) -> Unit)? = null) {
+        scope.launch {
+            val key = "${record.month}_${record.year}_${record.tenantId}".replace(" ", "_")
+            val json = JSONObject().apply {
+                put("id", key)
+                put("tenantId", record.tenantId)
+                put("tenantName", record.tenantName)
+                put("tenantPhone", record.tenantPhone)
+                put("shopNumber", record.shopNumber)
+                put("month", record.month)
+                put("year", record.year)
+                put("amountDue", record.amountDue)
+                put("amountPaid", record.amountPaid)
+                put("pendingAmount", record.pendingAmount)
+                put("isPersonal", record.isPersonal)
+                put("isFullPaid", record.isFullPaid)
+                put("promisedDate", record.promisedDate)
+                put("promisedNote", record.promisedNote)
+                put("promisedAt", record.promisedAt)
+                put("claimedPaid", record.claimedPaid)
+                put("claimedPaidNote", record.claimedPaidNote)
+                put("claimedPaidAt", record.claimedPaidAt)
+                put("isVerifiedByAdmin", record.isVerifiedByAdmin)
+                put("verifiedBy", record.verifiedBy)
+                put("receiptNumber", record.receiptNumber)
+                put("lastUpdated", record.lastUpdated)
+            }
+            val success = sendPutRequest("tenant_echo/$key", json.toString())
+            if (success) {
+                val map = _tenantEchoRecords.value.toMutableMap()
+                map[key] = record
+                _tenantEchoRecords.value = map
+                persistCurrentStateToCache()
+            }
+            withContext(Dispatchers.Main) {
+                onComplete?.invoke(success)
+            }
+        }
+    }
+
     private fun monthToOrder(month: String): Int {
         return when (month.lowercase()) {
             "january", "jan" -> 1
@@ -1135,6 +1310,8 @@ class FirebaseRealtimeSync(private val context: Context) {
             put("phone", subAdmin.phone)
             put("isActive", subAdmin.isActive)
             put("canManagePersonalTenants", subAdmin.canManagePersonalTenants)
+            put("canDelegateAuthority", subAdmin.canDelegateAuthority)
+            put("delegatedToUsernames", org.json.JSONArray(subAdmin.delegatedToUsernames))
             put("createdAt", subAdmin.createdAt)
             put("lastActiveAt", subAdmin.lastActiveAt)
             put("activeSessionId", subAdmin.activeSessionId)
@@ -1427,6 +1604,35 @@ class FirebaseRealtimeSync(private val context: Context) {
                 })
             }
             root.put("pmc_tax_clearances", clearancesObj)
+
+            val echoObj = JSONObject()
+            for ((key, echo) in _tenantEchoRecords.value) {
+                echoObj.put(key, JSONObject().apply {
+                    put("id", echo.id)
+                    put("tenantId", echo.tenantId)
+                    put("tenantName", echo.tenantName)
+                    put("tenantPhone", echo.tenantPhone)
+                    put("shopNumber", echo.shopNumber)
+                    put("month", echo.month)
+                    put("year", echo.year)
+                    put("amountDue", echo.amountDue)
+                    put("amountPaid", echo.amountPaid)
+                    put("pendingAmount", echo.pendingAmount)
+                    put("isPersonal", echo.isPersonal)
+                    put("isFullPaid", echo.isFullPaid)
+                    put("promisedDate", echo.promisedDate)
+                    put("promisedNote", echo.promisedNote)
+                    put("promisedAt", echo.promisedAt)
+                    put("claimedPaid", echo.claimedPaid)
+                    put("claimedPaidNote", echo.claimedPaidNote)
+                    put("claimedPaidAt", echo.claimedPaidAt)
+                    put("isVerifiedByAdmin", echo.isVerifiedByAdmin)
+                    put("verifiedBy", echo.verifiedBy)
+                    put("receiptNumber", echo.receiptNumber)
+                    put("lastUpdated", echo.lastUpdated)
+                })
+            }
+            root.put("tenant_echo", echoObj)
 
             saveToCache(root.toString())
         } catch (e: Exception) {

@@ -16,6 +16,7 @@ import com.example.model.RentRecord
 import com.example.model.Shop
 import com.example.model.SubAdminUser
 import com.example.model.Tenant
+import com.example.model.TenantEchoRecord
 import com.example.model.UserRole
 import com.example.model.UserSession
 import com.example.util.BillingCycleHelper
@@ -81,6 +82,7 @@ class MarketViewModel(application: Application) : AndroidViewModel(application) 
     val lastSyncedAt: StateFlow<Long> = sync.lastSyncedAt
     val isLoading: StateFlow<Boolean> = sync.isInitialLoading
     val appUpdateInfo: StateFlow<AppUpdateInfo?> = sync.appUpdateInfo
+    val tenantEchoRecords: StateFlow<Map<String, TenantEchoRecord>> = sync.tenantEchoRecords
 
     val currentFinancialYear: String = PmcTaxHelper.getCurrentFinancialYear()
     val isPmcTaxPeriod: Boolean = PmcTaxHelper.isPmcTaxNotificationPeriod()
@@ -226,8 +228,9 @@ class MarketViewModel(application: Application) : AndroidViewModel(application) 
     // 2. User role & permissions:
     //    - In PUBLIC_MARKET: shows all commercial shops/tenants/rents (isPersonal == false)
     //    - In PRIVATE_PERSONAL: shows personal flats/tenants/rents (isPersonal == true).
-    //      For Master Admin: all personal properties. For Sub-Admin: their own personal properties.
-    val shops: StateFlow<List<Shop>> = combine(rawShops, currentUser, workspaceMode) { allShops, user, mode ->
+    //      For Master Admin: all personal properties.
+    //      For Sub-Admin: their own personal properties OR properties of Sub-Admins who delegated full authority to them.
+    val shops: StateFlow<List<Shop>> = combine(rawShops, currentUser, workspaceMode, subAdmins) { allShops, user, mode, allSubAdmins ->
         when (mode) {
             AppWorkspaceMode.PUBLIC_MARKET -> {
                 allShops.filter { !it.isPersonal }
@@ -236,13 +239,16 @@ class MarketViewModel(application: Application) : AndroidViewModel(application) 
                 if (user == null || user.isAdmin) {
                     allShops.filter { it.isPersonal }
                 } else {
-                    allShops.filter { it.isPersonal && it.ownerSubAdminId == user.subAdminId }
+                    val delegatorIds = allSubAdmins.filter { sa ->
+                        sa.delegatedToUsernames.any { it.equals(user.username, ignoreCase = true) }
+                    }.map { it.id }.toSet()
+                    allShops.filter { it.isPersonal && (it.ownerSubAdminId == user.subAdminId || it.ownerSubAdminId in delegatorIds) }
                 }
             }
         }
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
 
-    val tenants: StateFlow<List<Tenant>> = combine(rawTenants, currentUser, workspaceMode) { allTenants, user, mode ->
+    val tenants: StateFlow<List<Tenant>> = combine(rawTenants, currentUser, workspaceMode, subAdmins) { allTenants, user, mode, allSubAdmins ->
         val filtered = when (mode) {
             AppWorkspaceMode.PUBLIC_MARKET -> {
                 allTenants.filter { !it.isPersonal }
@@ -251,14 +257,17 @@ class MarketViewModel(application: Application) : AndroidViewModel(application) 
                 if (user == null || user.isAdmin) {
                     allTenants.filter { it.isPersonal }
                 } else {
-                    allTenants.filter { it.isPersonal && it.ownerSubAdminId == user.subAdminId }
+                    val delegatorIds = allSubAdmins.filter { sa ->
+                        sa.delegatedToUsernames.any { it.equals(user.username, ignoreCase = true) }
+                    }.map { it.id }.toSet()
+                    allTenants.filter { it.isPersonal && (it.ownerSubAdminId == user.subAdminId || it.ownerSubAdminId in delegatorIds) }
                 }
             }
         }
         filtered.filter { it.isActive }
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
 
-    val archivedTenants: StateFlow<List<Tenant>> = combine(rawTenants, currentUser, workspaceMode) { allTenants, user, mode ->
+    val archivedTenants: StateFlow<List<Tenant>> = combine(rawTenants, currentUser, workspaceMode, subAdmins) { allTenants, user, mode, allSubAdmins ->
         val filtered = when (mode) {
             AppWorkspaceMode.PUBLIC_MARKET -> {
                 allTenants.filter { !it.isPersonal }
@@ -267,7 +276,10 @@ class MarketViewModel(application: Application) : AndroidViewModel(application) 
                 if (user == null || user.isAdmin) {
                     allTenants.filter { it.isPersonal }
                 } else {
-                    allTenants.filter { it.isPersonal && it.ownerSubAdminId == user.subAdminId }
+                    val delegatorIds = allSubAdmins.filter { sa ->
+                        sa.delegatedToUsernames.any { it.equals(user.username, ignoreCase = true) }
+                    }.map { it.id }.toSet()
+                    allTenants.filter { it.isPersonal && (it.ownerSubAdminId == user.subAdminId || it.ownerSubAdminId in delegatorIds) }
                 }
             }
         }
@@ -275,7 +287,7 @@ class MarketViewModel(application: Application) : AndroidViewModel(application) 
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
 
     // Active rents strictly filtered for currently active tenants (prevents deleted tenants from inflating totals)
-    val rents: StateFlow<List<RentRecord>> = combine(rawRents, rawTenants, currentUser, workspaceMode) { allRents, allTenants, user, mode ->
+    val rents: StateFlow<List<RentRecord>> = combine(rawRents, rawTenants, currentUser, workspaceMode, subAdmins) { allRents, allTenants, user, mode, allSubAdmins ->
         val activeTenantIds = allTenants.filter { it.isActive }.map { it.id }.toSet()
         val modeRents = when (mode) {
             AppWorkspaceMode.PUBLIC_MARKET -> {
@@ -285,7 +297,10 @@ class MarketViewModel(application: Application) : AndroidViewModel(application) 
                 if (user == null || user.isAdmin) {
                     allRents.filter { it.isPersonal }
                 } else {
-                    allRents.filter { it.isPersonal && it.ownerSubAdminId == user.subAdminId }
+                    val delegatorIds = allSubAdmins.filter { sa ->
+                        sa.delegatedToUsernames.any { it.equals(user.username, ignoreCase = true) }
+                    }.map { it.id }.toSet()
+                    allRents.filter { it.isPersonal && (it.ownerSubAdminId == user.subAdminId || it.ownerSubAdminId in delegatorIds) }
                 }
             }
         }
@@ -293,7 +308,7 @@ class MarketViewModel(application: Application) : AndroidViewModel(application) 
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
 
     // All historical rents (including deleted/archived tenants) for archive audit & ledger
-    val allHistoricalRents: StateFlow<List<RentRecord>> = combine(rawRents, currentUser, workspaceMode) { allRents, user, mode ->
+    val allHistoricalRents: StateFlow<List<RentRecord>> = combine(rawRents, currentUser, workspaceMode, subAdmins) { allRents, user, mode, allSubAdmins ->
         when (mode) {
             AppWorkspaceMode.PUBLIC_MARKET -> {
                 allRents.filter { !it.isPersonal }
@@ -302,7 +317,10 @@ class MarketViewModel(application: Application) : AndroidViewModel(application) 
                 if (user == null || user.isAdmin) {
                     allRents.filter { it.isPersonal }
                 } else {
-                    allRents.filter { it.isPersonal && it.ownerSubAdminId == user.subAdminId }
+                    val delegatorIds = allSubAdmins.filter { sa ->
+                        sa.delegatedToUsernames.any { it.equals(user.username, ignoreCase = true) }
+                    }.map { it.id }.toSet()
+                    allRents.filter { it.isPersonal && (it.ownerSubAdminId == user.subAdminId || it.ownerSubAdminId in delegatorIds) }
                 }
             }
         }
@@ -349,6 +367,7 @@ class MarketViewModel(application: Application) : AndroidViewModel(application) 
             val sessionId = authPrefs.getString("session_id", "") ?: ""
             val passwordSnapshot = authPrefs.getString("password_snapshot", "") ?: ""
             val canManagePersonalTenants = authPrefs.getBoolean("can_manage_personal_tenants", false)
+            val canDelegateAuthority = authPrefs.getBoolean("can_delegate_authority", false)
 
             val role = if (roleStr == UserRole.ADMIN.name) UserRole.ADMIN else UserRole.SUB_ADMIN
             if (role == UserRole.ADMIN) {
@@ -367,7 +386,8 @@ class MarketViewModel(application: Application) : AndroidViewModel(application) 
                 subAdminId = subAdminId,
                 sessionId = sessionId,
                 passwordSnapshot = passwordSnapshot,
-                canManagePersonalTenants = canManagePersonalTenants
+                canManagePersonalTenants = canManagePersonalTenants,
+                canDelegateAuthority = canDelegateAuthority
             )
             _currentUser.value = session
             if (session.isSubAdmin && subAdminId.isNotBlank()) {
@@ -400,9 +420,14 @@ class MarketViewModel(application: Application) : AndroidViewModel(application) 
                     ) {
                         // Password changed by Master Admin -> force logout immediately
                         logout()
-                    } else if (user.canManagePersonalTenants != matchingRecord.canManagePersonalTenants) {
+                    } else if (user.canManagePersonalTenants != matchingRecord.canManagePersonalTenants ||
+                        user.canDelegateAuthority != matchingRecord.canDelegateAuthority
+                    ) {
                         // Permission updated dynamically by Master Admin -> update session
-                        val updated = user.copy(canManagePersonalTenants = matchingRecord.canManagePersonalTenants)
+                        val updated = user.copy(
+                            canManagePersonalTenants = matchingRecord.canManagePersonalTenants,
+                            canDelegateAuthority = matchingRecord.canDelegateAuthority
+                        )
                         saveSession(updated)
                         _currentUser.value = updated
                     }
@@ -477,7 +502,8 @@ class MarketViewModel(application: Application) : AndroidViewModel(application) 
                     subAdminId = matchedSubAdmin.id,
                     sessionId = newSessionId,
                     passwordSnapshot = matchedSubAdmin.password,
-                    canManagePersonalTenants = matchedSubAdmin.canManagePersonalTenants
+                    canManagePersonalTenants = matchedSubAdmin.canManagePersonalTenants,
+                    canDelegateAuthority = matchedSubAdmin.canDelegateAuthority
                 )
                 saveSession(subAdminSession)
                 _currentUser.value = subAdminSession
@@ -510,6 +536,7 @@ class MarketViewModel(application: Application) : AndroidViewModel(application) 
             .putString("session_id", session.sessionId)
             .putString("password_snapshot", session.passwordSnapshot)
             .putBoolean("can_manage_personal_tenants", session.canManagePersonalTenants)
+            .putBoolean("can_delegate_authority", session.canDelegateAuthority)
             .apply()
     }
 
@@ -1133,7 +1160,14 @@ class MarketViewModel(application: Application) : AndroidViewModel(application) 
 
     // --- Sub-Admin Management (SUPER ADMIN ONLY) ---
 
-    fun addSubAdmin(username: String, password: String, name: String, phone: String, canManagePersonalTenants: Boolean = false): Result<Unit> {
+    fun addSubAdmin(
+        username: String,
+        password: String,
+        name: String,
+        phone: String,
+        canManagePersonalTenants: Boolean = false,
+        canDelegateAuthority: Boolean = false
+    ): Result<Unit> {
         if (_currentUser.value?.isAdmin != true) {
             return Result.failure(Exception("Only Master Admin can create Sub-Admins!"))
         }
@@ -1157,6 +1191,7 @@ class MarketViewModel(application: Application) : AndroidViewModel(application) 
                 name = name.trim().ifBlank { trimmedUser },
                 phone = phone.trim(),
                 canManagePersonalTenants = canManagePersonalTenants,
+                canDelegateAuthority = canDelegateAuthority,
                 isActive = true,
                 createdAt = System.currentTimeMillis(),
                 lastActiveAt = 0L
@@ -1169,7 +1204,7 @@ class MarketViewModel(application: Application) : AndroidViewModel(application) 
                 userRole = "ADMIN",
                 actionType = "CREATE_SUB_ADMIN",
                 title = "Created Sub-Admin: ${subAdmin.name}",
-                details = "Username: @$trimmedUser, Phone: ${phone.ifBlank { "N/A" }}, Personal Allowed: $canManagePersonalTenants"
+                details = "Username: @$trimmedUser, Phone: ${phone.ifBlank { "N/A" }}, Personal Allowed: $canManagePersonalTenants, Delegation Allowed: $canDelegateAuthority"
             ))
         }
         return Result.success(Unit)
@@ -1179,7 +1214,8 @@ class MarketViewModel(application: Application) : AndroidViewModel(application) 
         subAdminId: String,
         name: String,
         phone: String,
-        canManagePersonalTenants: Boolean
+        canManagePersonalTenants: Boolean,
+        canDelegateAuthority: Boolean = false
     ): Result<Unit> {
         if (_currentUser.value?.isAdmin != true) {
             return Result.failure(Exception("Only Master Admin can edit Sub-Admins!"))
@@ -1191,13 +1227,15 @@ class MarketViewModel(application: Application) : AndroidViewModel(application) 
             val updated = sa.copy(
                 name = name.trim().ifBlank { sa.name },
                 phone = phone.trim(),
-                canManagePersonalTenants = canManagePersonalTenants
+                canManagePersonalTenants = canManagePersonalTenants,
+                canDelegateAuthority = canDelegateAuthority
             )
             sync.saveSubAdmin(updated)
             if (_currentUser.value?.subAdminId == subAdminId) {
                 _currentUser.value = _currentUser.value?.copy(
                     displayName = updated.name,
-                    canManagePersonalTenants = canManagePersonalTenants
+                    canManagePersonalTenants = canManagePersonalTenants,
+                    canDelegateAuthority = canDelegateAuthority
                 )
             }
             sync.logActivity(ActivityLog(
@@ -1207,7 +1245,7 @@ class MarketViewModel(application: Application) : AndroidViewModel(application) 
                 userRole = "ADMIN",
                 actionType = "EDIT_SUB_ADMIN",
                 title = "Updated Sub-Admin: ${updated.name}",
-                details = "Username: @${sa.username}, Personal Flats Allowed: $canManagePersonalTenants"
+                details = "Username: @${sa.username}, Personal Flats: $canManagePersonalTenants, Delegation: $canDelegateAuthority"
             ))
         }
         return Result.success(Unit)
@@ -1244,6 +1282,78 @@ class MarketViewModel(application: Application) : AndroidViewModel(application) 
                 actionType = "CHANGE_PASSWORD_SUB_ADMIN",
                 title = "Changed Password for Sub-Admin: ${sa.name}",
                 details = "Username: @${sa.username}. All active sessions invalidated."
+            ))
+        }
+        return Result.success(Unit)
+    }
+
+    // --- Sub-Admin Delegation of Personal Flat/Shop Authority ---
+
+    fun addDelegatedSubAdmin(targetIdentifier: String): Result<Unit> {
+        val user = _currentUser.value ?: return Result.failure(Exception("Not logged in"))
+        if (user.isAdmin) {
+            return Result.failure(Exception("Master Admin has access to all records already."))
+        }
+        val trimmed = targetIdentifier.trim()
+        if (trimmed.isBlank()) {
+            return Result.failure(Exception("Username or phone cannot be empty."))
+        }
+        if (trimmed.equals(user.username, ignoreCase = true) || (user.phone.isNotBlank() && trimmed == user.phone)) {
+            return Result.failure(Exception("You cannot delegate authority to yourself."))
+        }
+
+        val allSAs = subAdmins.value
+        val mySA = allSAs.find { it.id == user.subAdminId }
+            ?: return Result.failure(Exception("Your Sub-Admin account was not found."))
+
+        if (!mySA.canDelegateAuthority) {
+            return Result.failure(Exception("Aapko authority delegate karne ki permission nahi hai. Kripya Master Admin se sampark karein."))
+        }
+
+        // Find the target sub-admin by username (e.g. "sub_b" or "@sub_b") or phone
+        val searchClean = trimmed.removePrefix("@").lowercase()
+        val targetSA = allSAs.find { sa ->
+            sa.username.lowercase() == searchClean || (sa.phone.isNotBlank() && sa.phone == trimmed)
+        } ?: return Result.failure(Exception("Sub-Admin '$trimmed' nahi mila. Kripya sahi username ya registered phone dalein."))
+
+        if (mySA.delegatedToUsernames.any { it.equals(targetSA.username, ignoreCase = true) }) {
+            return Result.failure(Exception("Sub-Admin @${targetSA.username} ko pehle se full authority mili hui hai."))
+        }
+
+        viewModelScope.launch {
+            val updatedList = mySA.delegatedToUsernames + targetSA.username
+            val updated = mySA.copy(delegatedToUsernames = updatedList)
+            sync.saveSubAdmin(updated)
+            sync.logActivity(ActivityLog(
+                id = "act_${System.currentTimeMillis()}_${UUID.randomUUID().toString().take(4)}",
+                timestamp = System.currentTimeMillis(),
+                userName = user.displayName,
+                userRole = "SUB_ADMIN",
+                actionType = "DELEGATE_AUTHORITY",
+                title = "Authority Delegated to @${targetSA.username}",
+                details = "${user.displayName} granted full personal management authority to @${targetSA.username} (${targetSA.name})."
+            ))
+        }
+        return Result.success(Unit)
+    }
+
+    fun removeDelegatedSubAdmin(targetUsername: String): Result<Unit> {
+        val user = _currentUser.value ?: return Result.failure(Exception("Not logged in"))
+        val mySA = subAdmins.value.find { it.id == user.subAdminId }
+            ?: return Result.failure(Exception("Sub-Admin account not found."))
+
+        viewModelScope.launch {
+            val updatedList = mySA.delegatedToUsernames.filterNot { it.equals(targetUsername, ignoreCase = true) }
+            val updated = mySA.copy(delegatedToUsernames = updatedList)
+            sync.saveSubAdmin(updated)
+            sync.logActivity(ActivityLog(
+                id = "act_${System.currentTimeMillis()}_${UUID.randomUUID().toString().take(4)}",
+                timestamp = System.currentTimeMillis(),
+                userName = user.displayName,
+                userRole = "SUB_ADMIN",
+                actionType = "REVOKE_DELEGATE_AUTHORITY",
+                title = "Authority Revoked from @$targetUsername",
+                details = "${user.displayName} revoked delegated personal management authority from @$targetUsername."
             ))
         }
         return Result.success(Unit)
@@ -1604,6 +1714,209 @@ class MarketViewModel(application: Application) : AndroidViewModel(application) 
                     details = "Recorded meter readings for $updatedCount sub-metered flats in ${selectedMonth.value} ${selectedYear.value}."
                 )
             )
+        }
+    }
+
+    // --- Tenant Echo & Two-Way Portal Actions ---
+
+    fun submitTenantPromiseDate(
+        rentRecordId: String,
+        promisedDate: String,
+        promisedNote: String,
+        onComplete: ((Boolean) -> Unit)? = null
+    ) {
+        viewModelScope.launch {
+            val record = rents.value.find { it.id == rentRecordId } ?: return@launch
+            val now = System.currentTimeMillis()
+            val updatedRecord = record.copy(
+                promisedDate = promisedDate.trim(),
+                promisedNote = promisedNote.trim(),
+                promisedAt = now,
+                updatedAt = now
+            )
+            sync.saveRentRecord(updatedRecord)
+
+            // Also mirror to Tenant record for long-term profile history
+            val tenant = rawTenants.value.find { it.id == record.tenantId }
+            if (tenant != null) {
+                val updatedTenant = tenant.copy(
+                    promisedPaymentDate = promisedDate.trim(),
+                    promisedPaymentNote = promisedNote.trim(),
+                    updatedAt = now
+                )
+                sync.saveTenant(updatedTenant)
+            }
+
+            // Sync into TenantEchoRecord
+            val echoKey = "${record.month}_${record.year}_${record.tenantId}".replace(" ", "_")
+            val existingEcho = tenantEchoRecords.value[echoKey]
+            val echo = (existingEcho ?: TenantEchoRecord(
+                id = echoKey,
+                tenantId = record.tenantId,
+                tenantName = record.tenantName,
+                tenantPhone = tenant?.phone ?: "",
+                shopNumber = record.shopNumber,
+                month = record.month,
+                year = record.year,
+                amountDue = record.amountDue,
+                amountPaid = record.amountPaid,
+                pendingAmount = record.pendingAmount,
+                isPersonal = record.isPersonal,
+                isFullPaid = record.isPaid
+            )).copy(
+                promisedDate = promisedDate.trim(),
+                promisedNote = promisedNote.trim(),
+                promisedAt = now,
+                lastUpdated = now
+            )
+            sync.saveTenantEcho(echo)
+
+            // Log activity
+            val user = currentUser.value?.displayName ?: "Tenant (via Echo)"
+            sync.logActivity(
+                ActivityLog(
+                    id = "act_${System.currentTimeMillis()}_${UUID.randomUUID().toString().take(4)}",
+                    timestamp = now,
+                    userName = user,
+                    userRole = "TENANT_ECHO",
+                    actionType = "TENANT_PROMISE_DATE",
+                    title = "Promise Date: ${record.tenantName} (${record.shopNumber})",
+                    details = "Promised to pay on $promisedDate. Note: ${promisedNote.ifBlank { "None" }} (${record.month} ${record.year})",
+                    tenantId = record.tenantId,
+                    shopId = record.shopId
+                )
+            )
+            onComplete?.invoke(true)
+        }
+    }
+
+    fun submitTenantClaimPaid(
+        rentRecordId: String,
+        claimNote: String,
+        onComplete: ((Boolean) -> Unit)? = null
+    ) {
+        viewModelScope.launch {
+            val record = rents.value.find { it.id == rentRecordId } ?: return@launch
+            val now = System.currentTimeMillis()
+            val updatedRecord = record.copy(
+                tenantClaimedPaid = true,
+                tenantClaimedNote = claimNote.trim(),
+                tenantClaimedAt = now,
+                updatedAt = now
+            )
+            sync.saveRentRecord(updatedRecord)
+
+            // Sync into TenantEchoRecord
+            val echoKey = "${record.month}_${record.year}_${record.tenantId}".replace(" ", "_")
+            val existingEcho = tenantEchoRecords.value[echoKey]
+            val tenant = rawTenants.value.find { it.id == record.tenantId }
+            val echo = (existingEcho ?: TenantEchoRecord(
+                id = echoKey,
+                tenantId = record.tenantId,
+                tenantName = record.tenantName,
+                tenantPhone = tenant?.phone ?: "",
+                shopNumber = record.shopNumber,
+                month = record.month,
+                year = record.year,
+                amountDue = record.amountDue,
+                amountPaid = record.amountPaid,
+                pendingAmount = record.pendingAmount,
+                isPersonal = record.isPersonal,
+                isFullPaid = record.isPaid
+            )).copy(
+                claimedPaid = true,
+                claimedPaidNote = claimNote.trim(),
+                claimedPaidAt = now,
+                lastUpdated = now
+            )
+            sync.saveTenantEcho(echo)
+
+            // Log activity
+            sync.logActivity(
+                ActivityLog(
+                    id = "act_${System.currentTimeMillis()}_${UUID.randomUUID().toString().take(4)}",
+                    timestamp = now,
+                    userName = "Tenant (${record.tenantName})",
+                    userRole = "TENANT_ECHO",
+                    actionType = "TENANT_CLAIM_PAID",
+                    title = "Payment Claimed: ${record.tenantName} (${record.shopNumber})",
+                    details = "Tenant reported payment completed for ${record.month} ${record.year}. Ref/Note: ${claimNote.ifBlank { "Awaiting admin confirmation" }}",
+                    tenantId = record.tenantId,
+                    shopId = record.shopId
+                )
+            )
+            onComplete?.invoke(true)
+        }
+    }
+
+    fun verifyTenantEchoPayment(
+        rentRecordId: String,
+        paymentMode: String = "CASH",
+        notes: String = "Verified via Tenant Echo",
+        onComplete: ((Boolean) -> Unit)? = null
+    ) {
+        viewModelScope.launch {
+            val record = rents.value.find { it.id == rentRecordId } ?: return@launch
+            val now = System.currentTimeMillis()
+            val user = currentUser.value
+            val verifierName = user?.let {
+                if (it.isAdmin) "Admin (${it.displayName})" else "Sub-Admin (${it.displayName})"
+            } ?: "Management"
+
+            val receiptNum = if (record.receiptNumber.isNotBlank()) record.receiptNumber
+            else "NLM-${record.year}-${UUID.randomUUID().toString().take(4).uppercase()}"
+            val effectiveDate = SimpleDateFormat("dd MMM yyyy", Locale.getDefault()).format(Date())
+
+            val updatedRecord = record.copy(
+                amountPaid = record.amountDue,
+                status = "PAID",
+                paidDate = effectiveDate,
+                paymentMode = paymentMode,
+                collectedBy = verifierName,
+                receiptNumber = receiptNum,
+                tenantClaimedPaid = true,
+                notes = if (notes.isNotBlank()) "${record.notes} | $notes".trimStart(' ', '|') else record.notes,
+                updatedAt = now
+            )
+            sync.saveRentRecord(updatedRecord)
+
+            // Update Tenant Echo
+            val echoKey = "${record.month}_${record.year}_${record.tenantId}".replace(" ", "_")
+            val existingEcho = tenantEchoRecords.value[echoKey]
+            val echo = (existingEcho ?: TenantEchoRecord(
+                id = echoKey,
+                tenantId = record.tenantId,
+                tenantName = record.tenantName,
+                shopNumber = record.shopNumber,
+                month = record.month,
+                year = record.year,
+                amountDue = record.amountDue,
+                isPersonal = record.isPersonal
+            )).copy(
+                amountPaid = record.amountDue,
+                pendingAmount = 0.0,
+                isFullPaid = true,
+                claimedPaid = true,
+                isVerifiedByAdmin = true,
+                verifiedBy = verifierName,
+                receiptNumber = receiptNum,
+                lastUpdated = now
+            )
+            sync.saveTenantEcho(echo)
+
+            // Log activity
+            sync.logActivity(
+                ActivityLog(
+                    id = "act_${System.currentTimeMillis()}_${UUID.randomUUID().toString().take(4)}",
+                    timestamp = now,
+                    userName = user?.displayName ?: "Admin",
+                    userRole = user?.role?.name ?: "ADMIN",
+                    actionType = "VERIFY_ECHO_PAYMENT",
+                    title = "Verified Payment: ${record.tenantName} (${record.shopNumber})",
+                    details = "Full payment verified & receipt #$receiptNum unlocked on tenant portal for ${record.month} ${record.year}."
+                )
+            )
+            onComplete?.invoke(true)
         }
     }
 }

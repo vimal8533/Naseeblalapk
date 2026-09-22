@@ -24,6 +24,13 @@ data class RentRecord(
     val notes: String = "",
     val isPersonal: Boolean = false,
     val ownerSubAdminId: String = "",
+    // Tenant Echo & Auto-Promise tracking:
+    val promisedDate: String = "", // e.g. "12 Oct 2026"
+    val promisedNote: String = "", // e.g. "Salary ke baad denge"
+    val promisedAt: Long = 0L,
+    val tenantClaimedPaid: Boolean = false, // Tenant pressed "I Have Paid" on their portal
+    val tenantClaimedNote: String = "", // UTR / payment mode / details provided by tenant
+    val tenantClaimedAt: Long = 0L,
     val updatedAt: Long = System.currentTimeMillis()
 ) {
     val pendingAmount: Double

@@ -34,6 +34,7 @@ import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.EditCalendar
 import androidx.compose.material.icons.filled.HourglassBottom
 import androidx.compose.material.icons.filled.NotificationsActive
+import androidx.compose.material.icons.filled.OpenInNew
 import androidx.compose.material.icons.filled.Paid
 import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.filled.PictureAsPdf
@@ -89,7 +90,9 @@ import com.example.model.MonthlyReminderRecord
 import com.example.model.RentRecord
 import com.example.model.Shop
 import com.example.model.Tenant
+import com.example.model.TenantEchoRecord
 import com.example.model.UserSession
+import com.example.ui.components.TenantEchoPortalDialog
 import com.example.ui.components.BatchMeterReadingDialog
 import com.example.ui.components.BatchSmsReminderDialog
 import com.example.ui.components.ElectricityMeterDialog
@@ -151,6 +154,10 @@ fun DashboardScreen(
     onRecordManualRemindersSent: (month: String, year: Int, count: Int, channel: String) -> Unit = { _, _, _, _ -> },
     onUpdateElectricityMeter: (rentId: String, prev: Double, current: Double, rate: Double) -> Unit = { _, _, _, _ -> },
     onSaveBatchMeterReadings: (entries: List<Triple<String, Triple<Double, Double, Double>, Double>>) -> Unit = { _ -> },
+    tenantEchoRecords: Map<String, TenantEchoRecord> = emptyMap(),
+    onSubmitPromiseDate: (rentId: String, date: String, note: String) -> Unit = { _, _, _ -> },
+    onSubmitClaimPaid: (rentId: String, note: String) -> Unit = { _, _ -> },
+    onVerifyTenantEchoPayment: (rentId: String) -> Unit = { _ -> },
     isLoading: Boolean = false,
     modifier: Modifier = Modifier
 ) {
@@ -162,6 +169,7 @@ fun DashboardScreen(
     var showBatchSmsDialog by remember { mutableStateOf(false) }
     var showBatchMeterDialog by remember { mutableStateOf(false) }
     var showDuesBreakdownDialog by remember { mutableStateOf(false) }
+    var rentForTenantEcho by remember { mutableStateOf<RentRecord?>(null) }
 
     val isPersonalWorkspace = workspaceMode == AppWorkspaceMode.PRIVATE_PERSONAL
     val reminderKey = "${selectedYear}_${selectedMonth}${if (isPersonalWorkspace) "_personal" else ""}"
@@ -214,13 +222,13 @@ fun DashboardScreen(
     )
 
     // Compute comprehensive tenant-wise dues breakdown
-    val tenantDuesList = remember(tenants, rents, allRents, selectedMonth, selectedYear) {
+    val tenantDuesList = remember(tenants, rents, selectedMonth, selectedYear) {
         tenants.mapNotNull { tenant ->
             val tenantOpeningDues = tenant.previousDues.coerceAtLeast(0.0)
             val currentMonthRent = rents.firstOrNull { it.tenantId == tenant.id }
             val currentMonthDue = currentMonthRent?.pendingAmount ?: 0.0
-
             val totalDue = tenantOpeningDues + currentMonthDue
+
             if (totalDue > 0.0) {
                 TenantDuesSummary(
                     tenantId = tenant.id,
@@ -882,6 +890,8 @@ fun DashboardScreen(
             } else {
                 items(rents, key = { it.id }) { rent ->
                     val tenant = tenantMap[rent.tenantId]
+                    val echoKey = "${rent.month}_${rent.year}_${rent.tenantId}".replace(" ", "_")
+                    val echoRecord = tenantEchoRecords[echoKey]
                     RentItemCard(
                         rent = rent,
                         businessName = tenant?.businessName ?: "",
@@ -893,6 +903,8 @@ fun DashboardScreen(
                         onShare = { ShareUtils.shareRentReceipt(context, rent) },
                         onWhatsAppReminder = { ShareUtils.sendWhatsAppReminder(context, rent, tenant?.phone) },
                         onDownloadReceipt = { ReceiptPdfGenerator.generateAndDownloadReceipt(context, rent) },
+                        echoRecord = echoRecord,
+                        onOpenTenantEcho = { rentForTenantEcho = rent },
                         modifier = Modifier.padding(horizontal = 16.dp, vertical = 6.dp)
                     )
                 }
@@ -971,6 +983,29 @@ fun DashboardScreen(
             onConfirmCorrection = { newAmount, mode, reason, paidDate ->
                 onCorrectRentPayment(r.id, newAmount, mode, reason, paidDate)
                 rentToCorrect = null
+            }
+        )
+    }
+
+    // Dialog for Tenant Echo & Two-Way Portal
+    rentForTenantEcho?.let { r ->
+        val tenant = tenantMap[r.tenantId]
+        val echoKey = "${r.month}_${r.year}_${r.tenantId}".replace(" ", "_")
+        val echo = tenantEchoRecords[echoKey]
+        TenantEchoPortalDialog(
+            rent = r,
+            tenant = tenant,
+            echoRecord = echo,
+            onDismiss = { rentForTenantEcho = null },
+            onSubmitPromiseDate = { date, note ->
+                onSubmitPromiseDate(r.id, date, note)
+            },
+            onSubmitClaimPaid = { note ->
+                onSubmitClaimPaid(r.id, note)
+            },
+            onAdminVerifyPayment = {
+                onVerifyTenantEchoPayment(r.id)
+                rentForTenantEcho = null
             }
         )
     }
@@ -1181,23 +1216,25 @@ fun DashboardScreen(
 
                                         // Quick Action Button: Collect Rent if this month's record exists
                                         dueItem.currentMonthRent?.let { rentRec ->
-                                            Spacer(modifier = Modifier.height(8.dp))
-                                            Button(
-                                                onClick = {
-                                                    showDuesBreakdownDialog = false
-                                                    rentToCollect = rentRec
-                                                },
-                                                modifier = Modifier.fillMaxWidth(),
-                                                shape = RoundedCornerShape(8.dp),
-                                                colors = ButtonDefaults.buttonColors(containerColor = NavyDark),
-                                                contentPadding = PaddingValues(vertical = 6.dp)
-                                            ) {
-                                                Text(
-                                                    text = "Collect ₹${formatAmount(rentRec.pendingAmount)}",
-                                                    fontSize = 12.sp,
-                                                    fontWeight = FontWeight.Bold,
-                                                    color = Color.White
-                                                )
+                                            if (rentRec.pendingAmount > 0) {
+                                                Spacer(modifier = Modifier.height(8.dp))
+                                                Button(
+                                                    onClick = {
+                                                        showDuesBreakdownDialog = false
+                                                        rentToCollect = rentRec
+                                                    },
+                                                    modifier = Modifier.fillMaxWidth(),
+                                                    shape = RoundedCornerShape(8.dp),
+                                                    colors = ButtonDefaults.buttonColors(containerColor = NavyDark),
+                                                    contentPadding = PaddingValues(vertical = 6.dp)
+                                                ) {
+                                                    Text(
+                                                        text = "Collect ₹${formatAmount(rentRec.pendingAmount)}",
+                                                        fontSize = 12.sp,
+                                                        fontWeight = FontWeight.Bold,
+                                                        color = Color.White
+                                                    )
+                                                }
                                             }
                                         }
                                     }
@@ -1235,6 +1272,8 @@ fun RentItemCard(
     onShare: () -> Unit,
     onWhatsAppReminder: () -> Unit,
     onDownloadReceipt: () -> Unit,
+    echoRecord: TenantEchoRecord? = null,
+    onOpenTenantEcho: (() -> Unit)? = null,
     modifier: Modifier = Modifier
 ) {
     val (statusColor, statusBg, statusBorder, statusLabel) = when {
@@ -1804,6 +1843,94 @@ fun RentItemCard(
                 }
             }
 
+            // ==================== TENANT ECHO INTERACTION BADGE (PROMISE DATE OR PAYMENT CLAIM) ====================
+            val effectivePromiseDate = rent.promisedDate.ifBlank { echoRecord?.promisedDate ?: "" }
+            val effectivePromiseNote = rent.promisedNote.ifBlank { echoRecord?.promisedNote ?: "" }
+            val hasTenantClaimed = rent.tenantClaimedPaid || (echoRecord?.claimedPaid == true)
+            val effectiveClaimNote = rent.tenantClaimedNote.ifBlank { echoRecord?.claimedPaidNote ?: "" }
+
+            if (hasTenantClaimed || effectivePromiseDate.isNotBlank()) {
+                Spacer(modifier = Modifier.height(8.dp))
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clip(RoundedCornerShape(8.dp))
+                        .background(if (hasTenantClaimed) Color(0xFFFEF3C7) else Color(0xFFEFF6FF))
+                        .border(
+                            1.dp,
+                            if (hasTenantClaimed) Color(0xFFF59E0B) else Color(0xFF93C5FD),
+                            RoundedCornerShape(8.dp)
+                        )
+                        .clickable(enabled = onOpenTenantEcho != null) { onOpenTenantEcho?.invoke() }
+                        .padding(horizontal = 10.dp, vertical = 6.dp)
+                ) {
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.weight(1f)) {
+                            Icon(
+                                imageVector = if (hasTenantClaimed) Icons.Filled.HourglassBottom else Icons.Filled.CalendarToday,
+                                contentDescription = null,
+                                tint = if (hasTenantClaimed) Color(0xFFB45309) else Color(0xFF1D4ED8),
+                                modifier = Modifier.size(15.dp)
+                            )
+                            Spacer(modifier = Modifier.width(6.dp))
+                            Column {
+                                if (hasTenantClaimed) {
+                                    Text(
+                                        text = "⚡ Tenant Claimed Payment - Verify Now",
+                                        fontWeight = FontWeight.Bold,
+                                        fontSize = 11.sp,
+                                        color = Color(0xFF92400E)
+                                    )
+                                    if (effectiveClaimNote.isNotBlank()) {
+                                        Text(
+                                            text = "Ref: $effectiveClaimNote",
+                                            fontSize = 9.5.sp,
+                                            color = Color(0xFFB45309),
+                                            maxLines = 1,
+                                            overflow = TextOverflow.Ellipsis
+                                        )
+                                    }
+                                } else {
+                                    Text(
+                                        text = "📅 Tenant Promised: $effectivePromiseDate",
+                                        fontWeight = FontWeight.Bold,
+                                        fontSize = 11.sp,
+                                        color = Color(0xFF1E40AF)
+                                    )
+                                    if (effectivePromiseNote.isNotBlank()) {
+                                        Text(
+                                            text = "Note: $effectivePromiseNote",
+                                            fontSize = 9.5.sp,
+                                            color = Color(0xFF3B82F6),
+                                            maxLines = 1,
+                                            overflow = TextOverflow.Ellipsis
+                                        )
+                                    }
+                                }
+                            }
+                        }
+
+                        Box(
+                            modifier = Modifier
+                                .clip(RoundedCornerShape(6.dp))
+                                .background(if (hasTenantClaimed) Color(0xFFB45309) else Color(0xFF1D4ED8))
+                                .padding(horizontal = 8.dp, vertical = 4.dp)
+                        ) {
+                            Text(
+                                text = if (hasTenantClaimed) "Review / Verify" else "View Portal",
+                                color = Color.White,
+                                fontSize = 9.5.sp,
+                                fontWeight = FontWeight.Bold
+                            )
+                        }
+                    }
+                }
+            }
+
             Spacer(modifier = Modifier.height(10.dp))
 
             // Action Buttons Row 1: Primary Action & WhatsApp Reminder
@@ -1812,26 +1939,27 @@ fun RentItemCard(
                 horizontalArrangement = Arrangement.spacedBy(8.dp)
             ) {
                 // Collect Button (or Edit Payment if paid)
+                val isEffectivelyPaid = rent.isPaid
                 Button(
-                    onClick = if (rent.isPaid && onEditPayment != null) onEditPayment else onCollect,
+                    onClick = if (isEffectivelyPaid && onEditPayment != null) onEditPayment else onCollect,
                     modifier = Modifier
                         .weight(1f)
                         .height(38.dp)
                         .testTag("collect_rent_btn_${rent.id}"),
                     colors = ButtonDefaults.buttonColors(
-                        containerColor = if (rent.isPaid) MaterialTheme.colorScheme.surfaceVariant else NavyPrimary,
-                        contentColor = if (rent.isPaid) NavyPrimary else Color.White
+                        containerColor = if (isEffectivelyPaid) MaterialTheme.colorScheme.surfaceVariant else NavyPrimary,
+                        contentColor = if (isEffectivelyPaid) NavyPrimary else Color.White
                     ),
                     shape = RoundedCornerShape(10.dp)
                 ) {
                     Icon(
-                        imageVector = if (rent.isPaid) Icons.Filled.Edit else Icons.Filled.Paid,
+                        imageVector = if (isEffectivelyPaid) Icons.Filled.Edit else Icons.Filled.Paid,
                         contentDescription = null,
                         modifier = Modifier.size(15.dp)
                     )
                     Spacer(modifier = Modifier.width(6.dp))
                     Text(
-                        text = if (rent.isPaid) "Edit Payment" else "Collect Rent",
+                        text = if (isEffectivelyPaid) "Edit Payment" else "Collect Rent",
                         fontSize = 12.sp,
                         fontWeight = FontWeight.Bold
                     )
@@ -1974,6 +2102,35 @@ fun RentItemCard(
                         fontSize = 11.sp,
                         fontWeight = FontWeight.Medium,
                         color = NavyPrimary
+                    )
+                }
+            }
+
+            if (onOpenTenantEcho != null) {
+                Spacer(modifier = Modifier.height(6.dp))
+                OutlinedButton(
+                    onClick = onOpenTenantEcho,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(34.dp)
+                        .testTag("open_echo_portal_btn_${rent.id}"),
+                    shape = RoundedCornerShape(10.dp),
+                    border = BorderStroke(1.dp, Color(0xFF3B82F6).copy(alpha = 0.5f)),
+                    colors = ButtonDefaults.outlinedButtonColors(containerColor = Color(0xFFEFF6FF)),
+                    contentPadding = PaddingValues(horizontal = 10.dp, vertical = 2.dp)
+                ) {
+                    Icon(
+                        imageVector = Icons.Filled.OpenInNew,
+                        contentDescription = "Tenant Echo Portal",
+                        tint = Color(0xFF1D4ED8),
+                        modifier = Modifier.size(14.dp)
+                    )
+                    Spacer(modifier = Modifier.width(6.dp))
+                    Text(
+                        text = "🌐 Tenant Echo Link & Portal",
+                        fontSize = 11.5.sp,
+                        fontWeight = FontWeight.SemiBold,
+                        color = Color(0xFF1D4ED8)
                     )
                 }
             }

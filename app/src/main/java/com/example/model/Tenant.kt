@@ -29,6 +29,9 @@ data class Tenant(
     val exitDate: String = "",
     val exitReason: String = "",
     val lastModifiedBy: String = "",
+    // Tenant Echo & Auto-Promise tracking:
+    val promisedPaymentDate: String = "", // e.g. "12 Oct 2026"
+    val promisedPaymentNote: String = "", // e.g. "Salary ke baad"
     val updatedAt: Long = System.currentTimeMillis()
 ) {
     val shopIdList: List<String>

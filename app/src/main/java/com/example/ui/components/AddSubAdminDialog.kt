@@ -21,6 +21,7 @@ import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.filled.Phone
 import androidx.compose.material.icons.filled.Shield
 import androidx.compose.material.icons.filled.HomeWork
+import androidx.compose.material.icons.filled.Share
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
@@ -54,13 +55,14 @@ import com.example.ui.theme.StatusPending
 @Composable
 fun AddSubAdminDialog(
     onDismiss: () -> Unit,
-    onSave: (username: String, password: String, name: String, phone: String, canManagePersonalTenants: Boolean) -> Result<Unit>
+    onSave: (username: String, password: String, name: String, phone: String, canManagePersonalTenants: Boolean, canDelegateAuthority: Boolean) -> Result<Unit>
 ) {
     var name by remember { mutableStateOf("") }
     var username by remember { mutableStateOf("") }
     var password by remember { mutableStateOf("") }
     var phone by remember { mutableStateOf("") }
     var canManagePersonalTenants by remember { mutableStateOf(false) }
+    var canDelegateAuthority by remember { mutableStateOf(false) }
     var errorMessage by remember { mutableStateOf<String?>(null) }
 
     Dialog(onDismissRequest = onDismiss) {
@@ -236,6 +238,60 @@ fun AddSubAdminDialog(
                     }
                 }
 
+                Spacer(modifier = Modifier.height(10.dp))
+
+                // Toggle for Allow Multiple Users / Delegate Authority Permission
+                Card(
+                    modifier = Modifier.fillMaxWidth(),
+                    shape = RoundedCornerShape(10.dp),
+                    colors = CardDefaults.cardColors(
+                        containerColor = if (canDelegateAuthority) Color(0xFF0F766E).copy(alpha = 0.12f) else MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)
+                    )
+                ) {
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = 12.dp, vertical = 8.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.SpaceBetween
+                    ) {
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            modifier = Modifier.weight(1f)
+                        ) {
+                            Icon(
+                                imageVector = Icons.Filled.Share,
+                                contentDescription = null,
+                                tint = if (canDelegateAuthority) Color(0xFF0F766E) else MaterialTheme.colorScheme.onSurfaceVariant,
+                                modifier = Modifier.size(22.dp)
+                            )
+                            Spacer(modifier = Modifier.width(10.dp))
+                            Column {
+                                Text(
+                                    text = "Allow Authority Delegation (Multiple Users)",
+                                    fontSize = 12.sp,
+                                    fontWeight = FontWeight.SemiBold,
+                                    color = MaterialTheme.colorScheme.onSurface
+                                )
+                                Text(
+                                    text = "Sub-admin can share personal flat authority with other sub-admins",
+                                    fontSize = 10.sp,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                            }
+                        }
+                        Switch(
+                            checked = canDelegateAuthority,
+                            onCheckedChange = { canDelegateAuthority = it },
+                            colors = SwitchDefaults.colors(
+                                checkedThumbColor = Color.White,
+                                checkedTrackColor = Color(0xFF0F766E)
+                            ),
+                            modifier = Modifier.testTag("toggle_delegate_authority_switch")
+                        )
+                    }
+                }
+
                 if (errorMessage != null) {
                     Spacer(modifier = Modifier.height(10.dp))
                     Text(
@@ -253,7 +309,7 @@ fun AddSubAdminDialog(
                         if (name.isBlank() || username.isBlank() || password.isBlank()) {
                             errorMessage = "Please fill in all required fields."
                         } else {
-                            val res = onSave(username.trim(), password.trim(), name.trim(), phone.trim(), canManagePersonalTenants)
+                            val res = onSave(username.trim(), password.trim(), name.trim(), phone.trim(), canManagePersonalTenants, canDelegateAuthority)
                             if (res.isFailure) {
                                 errorMessage = res.exceptionOrNull()?.message ?: "Error"
                             } else {

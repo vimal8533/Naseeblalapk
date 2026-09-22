@@ -32,6 +32,7 @@ import androidx.compose.material.icons.filled.Lock
 import androidx.compose.material.icons.filled.Phone
 import androidx.compose.material.icons.filled.Security
 import androidx.compose.material.icons.filled.Shield
+import androidx.compose.material.icons.filled.Share
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
@@ -80,8 +81,8 @@ import java.util.Locale
 fun SubAdminsScreen(
     subAdmins: List<SubAdminUser>,
     activityLogs: List<ActivityLog> = emptyList(),
-    onAddSubAdmin: (username: String, password: String, name: String, phone: String, canManagePersonalTenants: Boolean) -> Result<Unit>,
-    onUpdateSubAdmin: (subAdminId: String, name: String, phone: String, canManagePersonalTenants: Boolean) -> Result<Unit> = { _, _, _, _ -> Result.success(Unit) },
+    onAddSubAdmin: (username: String, password: String, name: String, phone: String, canManagePersonalTenants: Boolean, canDelegateAuthority: Boolean) -> Result<Unit>,
+    onUpdateSubAdmin: (subAdminId: String, name: String, phone: String, canManagePersonalTenants: Boolean, canDelegateAuthority: Boolean) -> Result<Unit> = { _, _, _, _, _ -> Result.success(Unit) },
     onChangePassword: (subAdminId: String, newPass: String) -> Result<Unit>,
     onDeleteSubAdmin: (subAdminId: String) -> Result<Unit>,
     isLoading: Boolean = false,
@@ -278,8 +279,8 @@ fun SubAdminsScreen(
         EditSubAdminDialog(
             subAdmin = sa,
             onDismiss = { subAdminToEdit = null },
-            onSave = { subAdminId, name, phone, canPersonal ->
-                val res = onUpdateSubAdmin(subAdminId, name, phone, canPersonal)
+            onSave = { subAdminId, name, phone, canPersonal, canDelegate ->
+                val res = onUpdateSubAdmin(subAdminId, name, phone, canPersonal, canDelegate)
                 if (res.isSuccess) {
                     subAdminToEdit = null
                 }
@@ -532,6 +533,50 @@ fun SubAdminCardItem(
                                 fontWeight = FontWeight.Bold,
                                 color = Color(0xFF0F766E)
                             )
+                        }
+
+                        if (subAdmin.canDelegateAuthority) {
+                            Spacer(modifier = Modifier.height(3.dp))
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically,
+                                modifier = Modifier
+                                    .clip(RoundedCornerShape(4.dp))
+                                    .background(Color(0xFF0F766E).copy(alpha = 0.08f))
+                                    .padding(horizontal = 5.dp, vertical = 1.5.dp)
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Filled.Share,
+                                    contentDescription = null,
+                                    tint = Color(0xFF0F766E),
+                                    modifier = Modifier.size(9.dp)
+                                )
+                                Spacer(modifier = Modifier.width(3.dp))
+                                Text(
+                                    text = if (subAdmin.delegatedToUsernames.isNotEmpty())
+                                        "Delegated to: ${subAdmin.delegatedToUsernames.joinToString(", ") { "@$it" }}"
+                                    else
+                                        "Delegation: Allowed",
+                                    fontSize = 9.sp,
+                                    fontWeight = FontWeight.Medium,
+                                    color = Color(0xFF0F766E)
+                                )
+                            }
+                        } else if (subAdmin.delegatedToUsernames.isNotEmpty()) {
+                            Spacer(modifier = Modifier.height(3.dp))
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically,
+                                modifier = Modifier
+                                    .clip(RoundedCornerShape(4.dp))
+                                    .background(Color(0xFF0F766E).copy(alpha = 0.08f))
+                                    .padding(horizontal = 5.dp, vertical = 1.5.dp)
+                            ) {
+                                Text(
+                                    text = "Delegated to: ${subAdmin.delegatedToUsernames.joinToString(", ") { "@$it" }}",
+                                    fontSize = 9.sp,
+                                    fontWeight = FontWeight.Medium,
+                                    color = Color(0xFF0F766E)
+                                )
+                            }
                         }
                     } else {
                         Row(

@@ -87,6 +87,7 @@ fun MainMarketScreen(
     val subAdmins by viewModel.subAdmins.collectAsState()
     val activityLogs by viewModel.activityLogs.collectAsState()
     val monthlyReminders by viewModel.monthlyReminders.collectAsState()
+    val tenantEchoRecords by viewModel.tenantEchoRecords.collectAsState()
     val syncStatus by viewModel.syncStatus.collectAsState()
     val lastSyncedAt by viewModel.lastSyncedAt.collectAsState()
     val selectedMonth by viewModel.selectedMonth.collectAsState()
@@ -331,6 +332,16 @@ fun MainMarketScreen(
                         onSaveBatchMeterReadings = { entries ->
                             viewModel.saveBatchMeterReadings(entries)
                         },
+                        tenantEchoRecords = tenantEchoRecords,
+                        onSubmitPromiseDate = { rentId, date, note ->
+                            viewModel.submitTenantPromiseDate(rentId, date, note)
+                        },
+                        onSubmitClaimPaid = { rentId, note ->
+                            viewModel.submitTenantClaimPaid(rentId, note)
+                        },
+                        onVerifyTenantEchoPayment = { rentId ->
+                            viewModel.verifyTenantEchoPayment(rentId)
+                        },
                         isLoading = isLoading
                     )
                 }
@@ -383,6 +394,16 @@ fun MainMarketScreen(
                         onDeleteTenant = { viewModel.deleteTenant(it) },
                         onRestoreTenant = { viewModel.restoreTenant(it) },
                         onPermanentlyDeleteTenant = { viewModel.permanentlyDeleteTenant(it) },
+                        tenantEchoRecords = tenantEchoRecords,
+                        onSubmitPromiseDate = { rentId, date, note ->
+                            viewModel.submitTenantPromiseDate(rentId, date, note)
+                        },
+                        onSubmitClaimPaid = { rentId, note ->
+                            viewModel.submitTenantClaimPaid(rentId, note)
+                        },
+                        onVerifyTenantEchoPayment = { rentId ->
+                            viewModel.verifyTenantEchoPayment(rentId)
+                        },
                         isLoading = isLoading
                     )
                 }
@@ -390,11 +411,11 @@ fun MainMarketScreen(
                     SubAdminsScreen(
                         subAdmins = subAdmins,
                         activityLogs = activityLogs,
-                        onAddSubAdmin = { user, pass, name, phone, canPersonal ->
-                            viewModel.addSubAdmin(user, pass, name, phone, canPersonal)
+                        onAddSubAdmin = { user, pass, name, phone, canPersonal, canDelegate ->
+                            viewModel.addSubAdmin(user, pass, name, phone, canPersonal, canDelegate)
                         },
-                        onUpdateSubAdmin = { subAdminId, name, phone, canPersonal ->
-                            viewModel.updateSubAdmin(subAdminId, name, phone, canPersonal)
+                        onUpdateSubAdmin = { subAdminId, name, phone, canPersonal, canDelegate ->
+                            viewModel.updateSubAdmin(subAdminId, name, phone, canPersonal, canDelegate)
                         },
                         onChangePassword = { subAdminId, newPass ->
                             viewModel.changeSubAdminPassword(subAdminId, newPass)
@@ -404,6 +425,9 @@ fun MainMarketScreen(
                     )
                 }
                 MarketTab.Profile -> {
+                    val mySubAdmin = subAdmins.find { it.id == currentUser.subAdminId }
+                    val myDelegatedToUsernames = mySubAdmin?.delegatedToUsernames ?: emptyList()
+
                     ProfileScreen(
                         user = currentUser,
                         syncStatus = syncStatus,
@@ -423,6 +447,9 @@ fun MainMarketScreen(
                         appUpdateInfo = appUpdateInfo,
                         onPublishAppUpdate = { viewModel.publishAppUpdate(it) },
                         onCheckForUpdates = { viewModel.checkForUpdates(it) },
+                        delegatedToUsernames = myDelegatedToUsernames,
+                        onAddDelegatedUser = { viewModel.addDelegatedSubAdmin(it) },
+                        onRemoveDelegatedUser = { viewModel.removeDelegatedSubAdmin(it) },
                         onLogout = { viewModel.logout() }
                     )
                 }

@@ -8,6 +8,8 @@ data class SubAdminUser(
     val phone: String = "",
     val isActive: Boolean = true,
     val canManagePersonalTenants: Boolean = false,
+    val canDelegateAuthority: Boolean = false,
+    val delegatedToUsernames: List<String> = emptyList(),
     val createdAt: Long = System.currentTimeMillis(),
     val lastActiveAt: Long = 0L,
     val activeSessionId: String = ""

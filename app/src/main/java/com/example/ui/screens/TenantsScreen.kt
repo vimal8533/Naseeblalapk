@@ -32,6 +32,7 @@ import androidx.compose.material.icons.filled.Description
 import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.ElectricMeter
 import androidx.compose.material.icons.filled.HistoryEdu
+import androidx.compose.material.icons.filled.OpenInNew
 import androidx.compose.material.icons.filled.People
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.Store
@@ -87,6 +88,8 @@ import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.clickable
 import com.example.model.RentRecord
+import com.example.model.TenantEchoRecord
+import com.example.ui.components.TenantEchoPortalDialog
 
 @Composable
 fun TenantsScreen(
@@ -120,6 +123,10 @@ fun TenantsScreen(
     onDeleteTenant: (tenantId: String) -> Unit,
     onRestoreTenant: (tenantId: String) -> Unit = {},
     onPermanentlyDeleteTenant: (tenantId: String) -> Unit = {},
+    tenantEchoRecords: Map<String, TenantEchoRecord> = emptyMap(),
+    onSubmitPromiseDate: (rentId: String, date: String, note: String) -> Unit = { _, _, _ -> },
+    onSubmitClaimPaid: (rentId: String, note: String) -> Unit = { _, _ -> },
+    onVerifyTenantEchoPayment: (rentId: String) -> Unit = { _ -> },
     isLoading: Boolean = false,
     modifier: Modifier = Modifier
 ) {
@@ -130,6 +137,7 @@ fun TenantsScreen(
     var showAddDialog by remember { mutableStateOf(false) }
     var tenantToEdit by remember { mutableStateOf<Tenant?>(null) }
     var tenantToDelete by remember { mutableStateOf<Tenant?>(null) }
+    var tenantForEchoPortal by remember { mutableStateOf<Tenant?>(null) }
 
     val filteredTenants = remember(tenants, searchQuery, selectedFilter, isPersonalWorkspace) {
         val base = when (selectedFilter) {
@@ -366,6 +374,7 @@ fun TenantsScreen(
                         },
                         onEdit = { tenantToEdit = tenant },
                         onDelete = { tenantToDelete = tenant },
+                        onOpenTenantEcho = { tenantForEchoPortal = tenant },
                         modifier = Modifier.padding(horizontal = 16.dp, vertical = 6.dp)
                     )
                 }
@@ -485,6 +494,42 @@ fun TenantsScreen(
             }
         )
     }
+
+    // ==================== TENANT ECHO PORTAL DIALOG ====================
+    tenantForEchoPortal?.let { t ->
+        val currentRent = remember(t, allHistoricalRents, selectedMonth, selectedYear) {
+            allHistoricalRents.firstOrNull { it.tenantId == t.id && it.month == selectedMonth && it.year == selectedYear }
+                ?: RentRecord(
+                    id = "${selectedMonth}_${selectedYear}_${t.id}".replace(" ", "_"),
+                    tenantId = t.id,
+                    tenantName = t.name,
+                    shopNumber = t.shopNumber,
+                    month = selectedMonth,
+                    year = selectedYear,
+                    amountDue = t.monthlyRent,
+                    isPersonal = t.isPersonal
+                )
+        }
+        val echoKey = "${currentRent.month}_${currentRent.year}_${currentRent.tenantId}".replace(" ", "_")
+        val echo = tenantEchoRecords[echoKey]
+
+        TenantEchoPortalDialog(
+            rent = currentRent,
+            tenant = t,
+            echoRecord = echo,
+            onDismiss = { tenantForEchoPortal = null },
+            onSubmitPromiseDate = { date, note ->
+                onSubmitPromiseDate(currentRent.id, date, note)
+            },
+            onSubmitClaimPaid = { note ->
+                onSubmitClaimPaid(currentRent.id, note)
+            },
+            onAdminVerifyPayment = {
+                onVerifyTenantEchoPayment(currentRent.id)
+                tenantForEchoPortal = null
+            }
+        )
+    }
 }
 
 @OptIn(ExperimentalLayoutApi::class)
@@ -495,6 +540,7 @@ fun TenantCardItem(
     onWhatsApp: () -> Unit,
     onEdit: () -> Unit,
     onDelete: () -> Unit,
+    onOpenTenantEcho: (() -> Unit)? = null,
     modifier: Modifier = Modifier
 ) {
     val individualShops = remember(tenant.shopNumber, tenant.isFlat) {
@@ -1158,6 +1204,35 @@ fun TenantCardItem(
                         Spacer(modifier = Modifier.width(3.dp))
                         Text("Delete", fontSize = 11.sp, fontWeight = FontWeight.Medium, color = StatusPending)
                     }
+                }
+            }
+
+            if (onOpenTenantEcho != null) {
+                Spacer(modifier = Modifier.height(8.dp))
+                OutlinedButton(
+                    onClick = onOpenTenantEcho,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(34.dp)
+                        .testTag("tenant_echo_btn_${tenant.id}"),
+                    shape = RoundedCornerShape(10.dp),
+                    border = BorderStroke(1.dp, Color(0xFF3B82F6).copy(alpha = 0.5f)),
+                    colors = ButtonDefaults.outlinedButtonColors(containerColor = Color(0xFFEFF6FF)),
+                    contentPadding = PaddingValues(horizontal = 10.dp, vertical = 2.dp)
+                ) {
+                    Icon(
+                        imageVector = Icons.Filled.OpenInNew,
+                        contentDescription = "Tenant Echo Portal",
+                        tint = Color(0xFF1D4ED8),
+                        modifier = Modifier.size(14.dp)
+                    )
+                    Spacer(modifier = Modifier.width(6.dp))
+                    Text(
+                        text = "🌐 Tenant Echo Link & Portal",
+                        fontSize = 11.5.sp,
+                        fontWeight = FontWeight.SemiBold,
+                        color = Color(0xFF1D4ED8)
+                    )
                 }
             }
         }

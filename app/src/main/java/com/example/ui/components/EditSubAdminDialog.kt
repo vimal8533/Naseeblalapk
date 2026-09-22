@@ -18,6 +18,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.HomeWork
+import androidx.compose.material.icons.filled.Share
 import androidx.compose.material.icons.filled.Lock
 import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.filled.Phone
@@ -56,11 +57,12 @@ import com.example.ui.theme.StatusPending
 fun EditSubAdminDialog(
     subAdmin: SubAdminUser,
     onDismiss: () -> Unit,
-    onSave: (subAdminId: String, name: String, phone: String, canManagePersonalTenants: Boolean) -> Result<Unit>
+    onSave: (subAdminId: String, name: String, phone: String, canManagePersonalTenants: Boolean, canDelegateAuthority: Boolean) -> Result<Unit>
 ) {
     var name by remember { mutableStateOf(subAdmin.name) }
     var phone by remember { mutableStateOf(subAdmin.phone) }
     var canManagePersonalTenants by remember { mutableStateOf(subAdmin.canManagePersonalTenants) }
+    var canDelegateAuthority by remember { mutableStateOf(subAdmin.canDelegateAuthority) }
     var errorMessage by remember { mutableStateOf<String?>(null) }
 
     Dialog(onDismissRequest = onDismiss) {
@@ -222,6 +224,78 @@ fun EditSubAdminDialog(
                     }
                 }
 
+                Spacer(modifier = Modifier.height(10.dp))
+
+                // Authority Delegation / Multiple Users Permission Card
+                Card(
+                    modifier = Modifier.fillMaxWidth(),
+                    shape = RoundedCornerShape(12.dp),
+                    colors = CardDefaults.cardColors(
+                        containerColor = if (canDelegateAuthority) Color(0xFF0F766E).copy(alpha = 0.08f) else MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.45f)
+                    ),
+                    border = androidx.compose.foundation.BorderStroke(
+                        1.dp,
+                        if (canDelegateAuthority) Color(0xFF0F766E) else MaterialTheme.colorScheme.outline.copy(alpha = 0.25f)
+                    )
+                ) {
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = 14.dp, vertical = 12.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.SpaceBetween
+                    ) {
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            modifier = Modifier.weight(1f)
+                        ) {
+                            Box(
+                                modifier = Modifier
+                                    .size(36.dp)
+                                    .clip(RoundedCornerShape(8.dp))
+                                    .background(if (canDelegateAuthority) Color(0xFF0F766E) else MaterialTheme.colorScheme.surfaceVariant),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Filled.Share,
+                                    contentDescription = null,
+                                    tint = if (canDelegateAuthority) Color.White else MaterialTheme.colorScheme.onSurfaceVariant,
+                                    modifier = Modifier.size(20.dp)
+                                )
+                            }
+                            Spacer(modifier = Modifier.width(12.dp))
+                            Column {
+                                Row(verticalAlignment = Alignment.CenterVertically) {
+                                    Text(
+                                        text = "Allow Authority Delegation",
+                                        fontSize = 13.sp,
+                                        fontWeight = FontWeight.Bold,
+                                        color = if (canDelegateAuthority) Color(0xFF0F766E) else MaterialTheme.colorScheme.onSurface
+                                    )
+                                }
+                                Text(
+                                    text = if (canDelegateAuthority)
+                                        "Enabled: Can share personal flat management with other sub-admins"
+                                    else
+                                        "Disabled: Cannot share authority with any other sub-admin",
+                                    fontSize = 10.5.sp,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                    lineHeight = 14.sp
+                                )
+                            }
+                        }
+                        Switch(
+                            checked = canDelegateAuthority,
+                            onCheckedChange = { canDelegateAuthority = it },
+                            colors = SwitchDefaults.colors(
+                                checkedThumbColor = Color.White,
+                                checkedTrackColor = Color(0xFF0F766E)
+                            ),
+                            modifier = Modifier.testTag("edit_delegate_permission_switch")
+                        )
+                    }
+                }
+
                 if (errorMessage != null) {
                     Spacer(modifier = Modifier.height(10.dp))
                     Text(
@@ -254,7 +328,7 @@ fun EditSubAdminDialog(
                             if (name.isBlank()) {
                                 errorMessage = "Name cannot be empty."
                             } else {
-                                val res = onSave(subAdmin.id, name.trim(), phone.trim(), canManagePersonalTenants)
+                                val res = onSave(subAdmin.id, name.trim(), phone.trim(), canManagePersonalTenants, canDelegateAuthority)
                                 if (res.isFailure) {
                                     errorMessage = res.exceptionOrNull()?.message ?: "Error updating sub-admin"
                                 } else {

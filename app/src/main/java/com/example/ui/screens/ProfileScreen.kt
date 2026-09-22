@@ -81,6 +81,9 @@ import com.example.ui.components.DeletedTenantsArchiveDialog
 import com.example.ui.components.MarketLogoMedallion
 import androidx.compose.material.icons.filled.SystemUpdate
 import androidx.compose.material.icons.filled.RocketLaunch
+import androidx.compose.material.icons.filled.Share
+import androidx.compose.material.icons.filled.PersonAdd
+import androidx.compose.material.icons.filled.Close
 import android.widget.Toast
 import androidx.compose.ui.platform.LocalContext
 import com.example.ui.theme.GoldAccent
@@ -114,6 +117,9 @@ fun ProfileScreen(
     appUpdateInfo: AppUpdateInfo? = null,
     onPublishAppUpdate: ((AppUpdateInfo) -> Unit)? = null,
     onCheckForUpdates: (((AppUpdateInfo?) -> Unit) -> Unit)? = null,
+    delegatedToUsernames: List<String> = emptyList(),
+    onAddDelegatedUser: ((String) -> Result<Unit>)? = null,
+    onRemoveDelegatedUser: ((String) -> Result<Unit>)? = null,
     modifier: Modifier = Modifier
 ) {
     val context = LocalContext.current
@@ -122,6 +128,7 @@ fun ProfileScreen(
     var showMasterArchiveDialog by remember { mutableStateOf(false) }
     var showBroadcastDialog by remember { mutableStateOf(false) }
     var showUpdateDialog by remember { mutableStateOf(false) }
+    var showDelegationDialog by remember { mutableStateOf(false) }
     var isCheckingUpdates by remember { mutableStateOf(false) }
     var editAdminName by remember(user) { mutableStateOf(user?.displayName ?: "Vimal Kumar") }
     var editAdminPhone by remember(user) { mutableStateOf(user?.phone ?: "9876543210") }
@@ -322,6 +329,159 @@ fun ProfileScreen(
                             fontSize = 11.sp,
                             fontWeight = FontWeight.Bold
                         )
+                    }
+                }
+            }
+        }
+
+        // Sub-Admin: Delegate Authority Settings Card (Share Personal Flats & Shops full management)
+        val isSubAdminWithDelegation = user != null && user.isSubAdmin && user.canManagePersonalTenants && user.canDelegateAuthority
+        if (isSubAdminWithDelegation) {
+            Spacer(modifier = Modifier.height(14.dp))
+            Card(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .testTag("subadmin_delegation_card"),
+                shape = RoundedCornerShape(16.dp),
+                colors = CardDefaults.cardColors(containerColor = Color(0xFFF8FAFC)),
+                border = androidx.compose.foundation.BorderStroke(1.2.dp, Color(0xFF0F766E).copy(alpha = 0.35f)),
+                elevation = CardDefaults.cardElevation(defaultElevation = 1.dp)
+            ) {
+                Column(modifier = Modifier.padding(16.dp)) {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Box(
+                                modifier = Modifier
+                                    .size(36.dp)
+                                    .clip(CircleShape)
+                                    .background(Color(0xFF0F766E).copy(alpha = 0.12f)),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Filled.Share,
+                                    contentDescription = "Delegate Authority",
+                                    tint = Color(0xFF0F766E),
+                                    modifier = Modifier.size(18.dp)
+                                )
+                            }
+                            Spacer(modifier = Modifier.width(10.dp))
+                            Column {
+                                Text(
+                                    text = "Delegate Authority",
+                                    fontWeight = FontWeight.Bold,
+                                    fontSize = 14.5.sp,
+                                    color = NavyDark
+                                )
+                                Text(
+                                    text = "Share personal flats & shops full control",
+                                    fontSize = 11.5.sp,
+                                    color = Color.Gray
+                                )
+                            }
+                        }
+
+                        Button(
+                            onClick = { showDelegationDialog = true },
+                            colors = ButtonDefaults.buttonColors(
+                                containerColor = Color(0xFF0F766E),
+                                contentColor = Color.White
+                            ),
+                            shape = RoundedCornerShape(8.dp),
+                            contentPadding = PaddingValues(horizontal = 12.dp, vertical = 6.dp)
+                        ) {
+                            Icon(
+                                imageVector = Icons.Filled.PersonAdd,
+                                contentDescription = null,
+                                modifier = Modifier.size(14.dp)
+                            )
+                            Spacer(modifier = Modifier.width(4.dp))
+                            Text("Manage", fontSize = 12.sp, fontWeight = FontWeight.Bold)
+                        }
+                    }
+
+                    Spacer(modifier = Modifier.height(10.dp))
+                    Divider(color = Color(0xFFE2E8F0), thickness = 0.8.dp)
+                    Spacer(modifier = Modifier.height(10.dp))
+
+                    if (delegatedToUsernames.isEmpty()) {
+                        Text(
+                            text = "Abhi tak kisi anya sub-admin ko authority nahi di gayi hai. Aap username daalkar full management rights de sakte hain.",
+                            fontSize = 12.sp,
+                            color = Color(0xFF64748B)
+                        )
+                    } else {
+                        Text(
+                            text = "Authorized Sub-Admins (${delegatedToUsernames.size}):",
+                            fontWeight = FontWeight.SemiBold,
+                            fontSize = 12.sp,
+                            color = NavyDark
+                        )
+                        Spacer(modifier = Modifier.height(6.dp))
+                        Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                            delegatedToUsernames.forEach { authorizedUsername ->
+                                Row(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .clip(RoundedCornerShape(8.dp))
+                                        .background(Color.White)
+                                        .border(1.dp, Color(0xFFCBD5E1), RoundedCornerShape(8.dp))
+                                        .padding(horizontal = 10.dp, vertical = 6.dp),
+                                    horizontalArrangement = Arrangement.SpaceBetween,
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    Row(verticalAlignment = Alignment.CenterVertically) {
+                                        Icon(
+                                            imageVector = Icons.Filled.Shield,
+                                            contentDescription = null,
+                                            tint = Color(0xFF0F766E),
+                                            modifier = Modifier.size(16.dp)
+                                        )
+                                        Spacer(modifier = Modifier.width(8.dp))
+                                        Text(
+                                            text = "@$authorizedUsername",
+                                            fontWeight = FontWeight.Bold,
+                                            fontSize = 13.sp,
+                                            color = NavyDark
+                                        )
+                                        Spacer(modifier = Modifier.width(6.dp))
+                                        Box(
+                                            modifier = Modifier
+                                                .clip(RoundedCornerShape(4.dp))
+                                                .background(Color(0xFF0F766E).copy(alpha = 0.1f))
+                                                .padding(horizontal = 6.dp, vertical = 2.dp)
+                                        ) {
+                                            Text(
+                                                text = "FULL ACCESS",
+                                                fontSize = 9.sp,
+                                                fontWeight = FontWeight.Bold,
+                                                color = Color(0xFF0F766E)
+                                            )
+                                        }
+                                    }
+
+                                    IconButton(
+                                        onClick = {
+                                            val res = onRemoveDelegatedUser?.invoke(authorizedUsername)
+                                            if (res?.isSuccess == true) {
+                                                Toast.makeText(context, "@$authorizedUsername se authority wapas le li gayi.", Toast.LENGTH_SHORT).show()
+                                            }
+                                        },
+                                        modifier = Modifier.size(24.dp)
+                                    ) {
+                                        Icon(
+                                            imageVector = Icons.Filled.Close,
+                                            contentDescription = "Remove Authority",
+                                            tint = Color(0xFFDC2626),
+                                            modifier = Modifier.size(16.dp)
+                                        )
+                                    }
+                                }
+                            }
+                        }
                     }
                 }
             }
@@ -923,6 +1083,103 @@ fun ProfileScreen(
         AppUpdateDialog(
             updateInfo = appUpdateInfo,
             onDismiss = { showUpdateDialog = false }
+        )
+    }
+
+    if (showDelegationDialog) {
+        var inputIdentifier by remember { mutableStateOf("") }
+        var errorMessage by remember { mutableStateOf<String?>(null) }
+
+        AlertDialog(
+            onDismissRequest = { showDelegationDialog = false },
+            title = {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Icon(
+                        imageVector = Icons.Filled.Share,
+                        contentDescription = null,
+                        tint = Color(0xFF0F766E),
+                        modifier = Modifier.size(22.dp)
+                    )
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Text("Delegate Authority", fontWeight = FontWeight.Bold, fontSize = 17.sp)
+                }
+            },
+            text = {
+                Column {
+                    Text(
+                        text = "Jis Sub-Admin ko aap apne Personal Flats & Shops ka full authority (view, edit, collect rent) dena chahte hain, unka registered Username ya Phone number enter karein.",
+                        fontSize = 12.5.sp,
+                        color = Color(0xFF475569)
+                    )
+                    Spacer(modifier = Modifier.height(14.dp))
+                    OutlinedTextField(
+                        value = inputIdentifier,
+                        onValueChange = {
+                            inputIdentifier = it
+                            errorMessage = null
+                        },
+                        label = { Text("Sub-Admin Username / Phone") },
+                        placeholder = { Text("e.g. subadmin2 ya 9876543210") },
+                        singleLine = true,
+                        leadingIcon = {
+                            Icon(Icons.Filled.Person, contentDescription = null, tint = Color(0xFF0F766E))
+                        },
+                        modifier = Modifier.fillMaxWidth(),
+                        shape = RoundedCornerShape(10.dp)
+                    )
+
+                    if (errorMessage != null) {
+                        Spacer(modifier = Modifier.height(6.dp))
+                        Text(
+                            text = errorMessage ?: "",
+                            color = Color(0xFFDC2626),
+                            fontSize = 11.5.sp,
+                            fontWeight = FontWeight.Medium
+                        )
+                    }
+
+                    Spacer(modifier = Modifier.height(12.dp))
+                    Card(
+                        shape = RoundedCornerShape(8.dp),
+                        colors = CardDefaults.cardColors(containerColor = Color(0xFF0F766E).copy(alpha = 0.08f))
+                    ) {
+                        Row(modifier = Modifier.padding(10.dp), verticalAlignment = Alignment.CenterVertically) {
+                            Icon(Icons.Filled.Info, contentDescription = null, tint = Color(0xFF0F766E), modifier = Modifier.size(16.dp))
+                            Spacer(modifier = Modifier.width(8.dp))
+                            Text(
+                                text = "Aapka control hamesha bana rahega (Co-Management). Aap jab chahein yahan se authority turant wapas le sakte hain.",
+                                fontSize = 11.sp,
+                                color = Color(0xFF0F766E)
+                            )
+                        }
+                    }
+                }
+            },
+            confirmButton = {
+                Button(
+                    onClick = {
+                        val result = onAddDelegatedUser?.invoke(inputIdentifier)
+                        if (result?.isSuccess == true) {
+                            Toast.makeText(context, "Authority successfully grant kar di gayi!", Toast.LENGTH_SHORT).show()
+                            showDelegationDialog = false
+                        } else {
+                            errorMessage = result?.exceptionOrNull()?.message ?: "Failed to delegate authority."
+                        }
+                    },
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = Color(0xFF0F766E),
+                        contentColor = Color.White
+                    ),
+                    shape = RoundedCornerShape(8.dp)
+                ) {
+                    Text("Grant Full Authority", fontWeight = FontWeight.Bold)
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { showDelegationDialog = false }) {
+                    Text("Cancel")
+                }
+            }
         )
     }
 }
