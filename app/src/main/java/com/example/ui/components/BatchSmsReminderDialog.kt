@@ -79,6 +79,7 @@ import com.example.model.UserSession
 import com.example.ui.theme.NavyPrimary
 import com.example.ui.theme.StatusPaid
 import com.example.ui.theme.StatusPending
+import com.example.ui.util.ShareUtils
 import com.example.util.SmsReminderHelper
 
 /**
@@ -465,6 +466,7 @@ fun BatchSmsReminderDialog(
                     if (currentRent != null) {
                         val currentTenant = tenants.find { it.id == currentRent.tenantId }
                         val currentPhone = currentTenant?.phone?.trim() ?: ""
+                        val currentPortalUrl = ShareUtils.generateTenantEchoPortalUrl(currentRent)
                         val currentMessage = SmsReminderHelper.formatReminderMessage(
                             tenantName = currentRent.tenantName,
                             shopNumber = currentRent.shopNumber,
@@ -476,7 +478,8 @@ fun BatchSmsReminderDialog(
                             cycleMonths = currentTenant?.cycleMonths ?: 1,
                             isPersonal = currentRent.isPersonal,
                             electricityBill = currentRent.electricityBill,
-                            flatBaseRent = (currentRent.amountDue - currentRent.electricityBill).coerceAtLeast(0.0)
+                            flatBaseRent = (currentRent.amountDue - currentRent.electricityBill).coerceAtLeast(0.0),
+                            portalUrl = currentPortalUrl
                         )
 
                         Surface(
@@ -785,6 +788,7 @@ fun BatchSmsReminderDialog(
                     val sampleTenant = tenants.find { it.id == sampleRent?.tenantId }
                     val sampleMessage = remember(sampleRent, sampleTenant, month, year, senderName, senderContactPhone) {
                         if (sampleRent != null) {
+                            val samplePortalUrl = ShareUtils.generateTenantEchoPortalUrl(sampleRent)
                             SmsReminderHelper.formatReminderMessage(
                                 tenantName = sampleRent.tenantName,
                                 shopNumber = sampleRent.shopNumber,
@@ -796,7 +800,8 @@ fun BatchSmsReminderDialog(
                                 cycleMonths = sampleTenant?.cycleMonths ?: 1,
                                 isPersonal = sampleRent.isPersonal,
                                 electricityBill = sampleRent.electricityBill,
-                                flatBaseRent = (sampleRent.amountDue - sampleRent.electricityBill).coerceAtLeast(0.0)
+                                flatBaseRent = (sampleRent.amountDue - sampleRent.electricityBill).coerceAtLeast(0.0),
+                                portalUrl = samplePortalUrl
                             )
                         } else {
                             "Namaste Kirayedaar ji, aapka kiraya due hai..."
@@ -887,6 +892,7 @@ fun BatchSmsReminderDialog(
                             val phone = tenant?.phone?.trim() ?: ""
                             val isSent = sentTenantsMap.containsKey(rent.id)
 
+                            val portalUrl = ShareUtils.generateTenantEchoPortalUrl(rent)
                             val msg = remember(rent, senderName, senderContactPhone) {
                                 SmsReminderHelper.formatReminderMessage(
                                     tenantName = rent.tenantName,
@@ -899,7 +905,8 @@ fun BatchSmsReminderDialog(
                                     cycleMonths = tenant?.cycleMonths ?: 1,
                                     isPersonal = rent.isPersonal,
                                     electricityBill = rent.electricityBill,
-                                    flatBaseRent = (rent.amountDue - rent.electricityBill).coerceAtLeast(0.0)
+                                    flatBaseRent = (rent.amountDue - rent.electricityBill).coerceAtLeast(0.0),
+                                    portalUrl = portalUrl
                                 )
                             }
 

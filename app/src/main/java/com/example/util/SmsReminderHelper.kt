@@ -64,7 +64,8 @@ object SmsReminderHelper {
         cycleMonths: Int = 1,
         isPersonal: Boolean = false,
         electricityBill: Double = 0.0,
-        flatBaseRent: Double = 0.0
+        flatBaseRent: Double = 0.0,
+        portalUrl: String? = null
     ): String {
         val cleanName = tenantName.trim().ifBlank { "Kirayedaar" }
         val cleanShop = shopNumber.trim().ifBlank { if (isPersonal) "Flat" else "Dukaan" }
@@ -95,7 +96,7 @@ object SmsReminderHelper {
             else -> "$month $year ka"
         }
 
-        return if (isPersonal) {
+        val baseMsg = if (isPersonal) {
             val flatLabel = if (cleanShop.startsWith("Flat", ignoreCase = true)) cleanShop else "Flat $cleanShop"
             val breakdownStr = if (electricityBill > 0.0 && flatBaseRent > 0.0) {
                 val rentStr = if (flatBaseRent % 1.0 == 0.0) String.format("%,d", flatBaseRent.toLong()) else String.format("%,.2f", flatBaseRent)
@@ -108,6 +109,19 @@ object SmsReminderHelper {
             "Namaste $cleanName ji, aapke $flatLabel ka $cyclePhrase $breakdownStr due hai. Kripya samay par jama karein. $signOff$contactSuffix"
         } else {
             "Namaste $cleanName ji, aapki Shop No. $cleanShop ka $cyclePhrase kiraya Rs $amountStr due hai. Kripya samay par jama karein. Shukriya - Naseeb Lal Market$contactSuffix"
+        }
+
+        return if (!portalUrl.isNullOrBlank()) {
+            buildString {
+                appendLine(baseMsg)
+                appendLine()
+                appendLine("🔗 Apna Payment Status & Vada Link:")
+                appendLine(portalUrl)
+                appendLine()
+                appendLine("(Upar link par click karke aap payment ki expected date de sakte hain, ya payment jama kar diya ho toh verify karwa ke receipt le sakte hain)")
+            }.trim()
+        } else {
+            baseMsg
         }
     }
 
