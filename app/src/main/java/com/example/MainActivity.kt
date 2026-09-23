@@ -114,9 +114,6 @@ class MainActivity : ComponentActivity() {
                 LoginScreen(
                   onLogin = { username, password, role ->
                     viewModel.login(username, password, role)
-                  },
-                  onOpenTenantPortal = {
-                    showTenantLookupDialog = true
                   }
                 )
               } else {

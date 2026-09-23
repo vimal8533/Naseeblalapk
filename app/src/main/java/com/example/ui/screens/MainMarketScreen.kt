@@ -52,10 +52,13 @@ import androidx.compose.ui.unit.sp
 import com.example.BuildConfig
 import com.example.data.SyncStatus
 import com.example.model.UserRole
+import com.example.model.RentRecord
 import com.example.model.UserSession
 import com.example.ui.components.AppUpdateDialog
 import com.example.ui.components.MarketTopBar
 import com.example.ui.components.NotificationPanelDialog
+import com.example.ui.components.TenantEchoPortalDialog
+import com.example.ui.dialogs.TenantPortalLookupDialog
 import com.example.ui.theme.GoldAccent
 import com.example.ui.theme.NavyDark
 import com.example.ui.theme.NavyPrimary
@@ -103,6 +106,8 @@ fun MainMarketScreen(
     val currentPmcClearance by viewModel.currentPmcClearance.collectAsState()
     var showNotificationPanel by remember { mutableStateOf(false) }
     var updateDismissed by remember { mutableStateOf(false) }
+    var showTenantLookupDialog by remember { mutableStateOf(false) }
+    var activeTenantEchoRent by remember { mutableStateOf<RentRecord?>(null) }
     val context = LocalContext.current
 
     LaunchedEffect(appUpdateInfo) {
@@ -450,6 +455,7 @@ fun MainMarketScreen(
                         delegatedToUsernames = myDelegatedToUsernames,
                         onAddDelegatedUser = { viewModel.addDelegatedSubAdmin(it) },
                         onRemoveDelegatedUser = { viewModel.removeDelegatedSubAdmin(it) },
+                        onOpenTenantPortal = { showTenantLookupDialog = true },
                         onLogout = { viewModel.logout() }
                     )
                 }
@@ -497,6 +503,42 @@ fun MainMarketScreen(
             },
             onMarkPmcTaxPaid = { amount, receiptNumber, paidDate, paymentMode, notes ->
                 viewModel.markPmcTaxPaid(amount, receiptNumber, paidDate, paymentMode, notes)
+            }
+        )
+    }
+
+    // Kirayedaar Portal Preview Dialogs
+    if (showTenantLookupDialog) {
+        TenantPortalLookupDialog(
+            rents = allRents,
+            onDismiss = { showTenantLookupDialog = false },
+            onSelectRent = { selectedRent ->
+                showTenantLookupDialog = false
+                activeTenantEchoRent = selectedRent
+            }
+        )
+    }
+
+    if (activeTenantEchoRent != null) {
+        val r = activeTenantEchoRent!!
+        val tenant = tenants.find { it.id == r.tenantId }
+        val echoKey = "${r.month}_${r.year}_${r.tenantId}".replace(" ", "_")
+        val echoRecord = tenantEchoRecords[echoKey]
+
+        TenantEchoPortalDialog(
+            rent = r,
+            tenant = tenant,
+            echoRecord = echoRecord,
+            onDismiss = { activeTenantEchoRent = null },
+            onSubmitPromiseDate = { promisedDate, note ->
+                viewModel.submitTenantPromiseDate(r.id, promisedDate, note)
+            },
+            onSubmitClaimPaid = { refNote ->
+                viewModel.submitTenantClaimPaid(r.id, refNote)
+            },
+            onAdminVerifyPayment = {
+                viewModel.verifyTenantEchoPayment(r.id)
+                activeTenantEchoRent = null
             }
         )
     }

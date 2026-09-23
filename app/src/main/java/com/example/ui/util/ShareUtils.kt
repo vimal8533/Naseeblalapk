@@ -10,7 +10,7 @@ object ShareUtils {
 
     fun generateTenantEchoPortalUrl(rent: RentRecord): String {
         val echoSlug = "${rent.tenantId}_${rent.month}_${rent.year}".replace(" ", "_")
-        return "https://naseeblalmarket.web.app/portal?echo=$echoSlug"
+        return "https://nasseblalmarkt.web.app/?echo=$echoSlug"
     }
 
     /**
@@ -52,115 +52,23 @@ object ShareUtils {
     }
 
     fun formatRentReminderMessage(rent: RentRecord): String {
-        return buildString {
-            if (rent.isPersonal) {
-                appendLine("🏠 *RESIDENTIAL / FLAT MANAGEMENT*")
-                appendLine("📢 *RENT & BILL PAYMENT REMINDER*")
-                appendLine("━━━━━━━━━━━━━━━━━━")
-                appendLine("Dear *${rent.tenantName}*,")
-                appendLine()
-                appendLine("This is a friendly reminder regarding your dues for *Flat/Unit ${rent.shopNumber}*.")
-                appendLine()
-                appendLine("📅 *Month:* ${rent.month} ${rent.year}")
-                val flatBaseRent = (rent.amountDue - rent.electricityBill).coerceAtLeast(0.0)
-                if (rent.electricityBill > 0) {
-                    appendLine("🏠 *Flat Rent:* ₹${formatAmount(flatBaseRent)}")
-                    appendLine("⚡ *Electricity Bill:* ₹${formatAmount(rent.electricityBill)}")
-                    appendLine("💰 *Total Amount Due:* ₹${formatAmount(rent.amountDue)}")
-                } else {
-                    appendLine("💰 *Total Amount Due:* ₹${formatAmount(rent.amountDue)}")
-                }
-                if (rent.amountPaid > 0) {
-                    appendLine("💵 *Amount Paid so far:* ₹${formatAmount(rent.amountPaid)}")
-                }
-                appendLine("⏳ *PENDING BALANCE:* ₹${formatAmount(rent.pendingAmount)}")
-                if (rent.dueDate.isNotBlank()) {
-                    appendLine("⏰ *Due Date:* ${rent.dueDate}")
-                }
-                if (rent.promisedDate.isNotBlank() && !isPromiseDateActive(rent.promisedDate)) {
-                    appendLine("⚠️ *Promise Passed:* Aapne ${rent.promisedDate} tak bhugtan ka vada kiya tha jo beet chuka hai.")
-                }
-                appendLine("━━━━━━━━━━━━━━━━━━")
-                val portalLink = generateTenantEchoPortalUrl(rent)
-                val appDeepLink = "naseeblalmarket://portal?echo=${rent.tenantId}_${rent.month}_${rent.year}".replace(" ", "_")
-                val encodedUnit = safeUrlEncode(if (rent.isPersonal) "Flat ${rent.shopNumber}" else "Shop ${rent.shopNumber}")
-                val encodedMonth = safeUrlEncode("${rent.month} ${rent.year}")
-                val encodedBal = safeUrlEncode("Rs. ${formatAmount(rent.pendingAmount)}")
-
-                appendLine("🔗 *Tenant Self-Service Portal:*")
-                appendLine("👉 $portalLink")
-                appendLine("*(App me direct kholne ke liye upar link tap karein)*")
-                appendLine()
-                appendLine("⚡ *Instant 1-Click WhatsApp Reply:*")
-                appendLine("📅 *Vada / Promise Date dene ke liye tap karein:*")
-                appendLine("👉 https://wa.me/?text=Namaste+Management,+I+promise+to+pay+rent+for+$encodedUnit+($encodedMonth)+by+Date:_________+Note:_________")
-                appendLine()
-                appendLine("💳 *Payment jama karne / UTR bhejne ke liye tap karein:*")
-                appendLine("👉 https://wa.me/?text=Namaste+Management,+I+have+paid+rent+for+$encodedUnit+($encodedMonth).+Amount:+$encodedBal.+Mode:+[Cash/Online].+Ref/UTR+No:_________")
-                appendLine("━━━━━━━━━━━━━━━━━━")
-                appendLine("Kindly clear the pending balance at your earliest convenience.")
-                appendLine("⚠️ *Important Notice (Anti-Fraud Policy):*")
-                appendLine("• Koi bhi online payment gateway ya automatic payment link nahi diya gaya hai.")
-                appendLine("• Payment direct authorized Management se contact karke hi jama karein.")
-                appendLine("• Online transfer kiya ho to Portal link par jakar apna UTR/Ref No. enter karein taaki fraud-check verify ho sake.")
-                appendLine("If already paid, click 'I Have Paid' on the link and enter your UTR number.")
-                appendLine()
-                appendLine("📍 *Residential Management*")
-            } else {
-                val baseRent = (rent.amountDue - rent.pmcTax).coerceAtLeast(0.0)
-                appendLine("🏪 *NASEEB LAL MARKET*")
-                appendLine("📢 *RENT PAYMENT REMINDER*")
-                appendLine("━━━━━━━━━━━━━━━━━━")
-                appendLine("Dear *${rent.tenantName}*,")
-                appendLine()
-                appendLine("This is a friendly reminder regarding your rent for *Shop ${rent.shopNumber}*.")
-                appendLine()
-                appendLine("📅 *Month:* ${rent.month} ${rent.year}")
-                if (rent.pmcTax > 0) {
-                    appendLine("🏠 *Monthly Rent:* ₹${formatAmount(baseRent)}")
-                    appendLine("🏷️ *PMC Tax (1+ Year Completed):* ₹${formatAmount(rent.pmcTax)}")
-                    appendLine("💰 *Total Amount Due:* ₹${formatAmount(rent.amountDue)}")
-                } else {
-                    appendLine("💰 *Total Amount Due:* ₹${formatAmount(rent.amountDue)}")
-                }
-                if (rent.amountPaid > 0) {
-                    appendLine("💵 *Amount Paid so far:* ₹${formatAmount(rent.amountPaid)}")
-                }
-                appendLine("⏳ *PENDING BALANCE:* ₹${formatAmount(rent.pendingAmount)}")
-                if (rent.dueDate.isNotBlank()) {
-                    appendLine("⏰ *Due Date:* ${rent.dueDate}")
-                }
-                if (rent.promisedDate.isNotBlank() && !isPromiseDateActive(rent.promisedDate)) {
-                    appendLine("⚠️ *Promise Passed:* Aapne ${rent.promisedDate} tak bhugtan ka vada kiya tha jo beet chuka hai.")
-                }
-                appendLine("━━━━━━━━━━━━━━━━━━")
-                val portalLink = generateTenantEchoPortalUrl(rent)
-                val appDeepLink = "naseeblalmarket://portal?echo=${rent.tenantId}_${rent.month}_${rent.year}".replace(" ", "_")
-                val encodedUnit = safeUrlEncode("Shop ${rent.shopNumber}")
-                val encodedMonth = safeUrlEncode("${rent.month} ${rent.year}")
-                val encodedBal = safeUrlEncode("Rs. ${formatAmount(rent.pendingAmount)}")
-
-                appendLine("🔗 *Tenant Self-Service Portal:*")
-                appendLine("👉 $portalLink")
-                appendLine("*(App me direct kholne ke liye upar link tap karein)*")
-                appendLine()
-                appendLine("⚡ *Instant 1-Click WhatsApp Reply:*")
-                appendLine("📅 *Vada / Promise Date dene ke liye tap karein:*")
-                appendLine("👉 https://wa.me/?text=Namaste+Market+Management,+I+promise+to+pay+rent+for+$encodedUnit+($encodedMonth)+by+Date:_________+Note:_________")
-                appendLine()
-                appendLine("💳 *Payment jama karne / UTR bhejne ke liye tap karein:*")
-                appendLine("👉 https://wa.me/?text=Namaste+Market+Management,+I+have+paid+rent+for+$encodedUnit+($encodedMonth).+Amount:+$encodedBal.+Payment+Mode:+[Cash/Online].+Ref/UTR+No:_________")
-                appendLine("━━━━━━━━━━━━━━━━━━")
-                appendLine("Kindly clear the pending balance at your earliest convenience.")
-                appendLine("⚠️ *Important Notice (Anti-Fraud Policy):*")
-                appendLine("• Kisi bhi payment link ya UPI ID par payment na karein.")
-                appendLine("• Payment direct authorized Market Management se contact karke hi karein.")
-                appendLine("• Bhugtan ke baad portal link par 'I Have Paid' dabayein aur valid UTR/Ref No. dalein.")
-                appendLine("Management UTR verify karke hi final digital receipt unlock karegi.")
-                appendLine()
-                appendLine("📍 *Naseeb Lal Market Management*")
-            }
+        val portalLink = generateTenantEchoPortalUrl(rent)
+        val unitLabel = if (rent.isPersonal) "Flat No. ${rent.shopNumber}" else "Shop No. ${rent.shopNumber}"
+        val periodLabel = if (rent.month.contains("yearly", ignoreCase = true) || rent.month.contains("varshik", ignoreCase = true)) {
+            "Varshik (Yearly)"
+        } else {
+            "${rent.month} ${rent.year}"
         }
+        val formattedAmount = formatAmount(rent.pendingAmount)
+
+        return buildString {
+            appendLine("Namaste ${rent.tenantName} ji, aapki $unitLabel ka $periodLabel kiraya Rs $formattedAmount due hai. Kripya samay par jama karein. Shukriya - Naseeb Lal Market (Sampark: Vimal Kumar, Mob: 7654138539)")
+            appendLine()
+            appendLine("🔗 Apna Payment Status & Portal Link:")
+            appendLine(portalLink)
+            appendLine()
+            appendLine("(Upar link par click karke aap payment ki expected date de sakte hain, ya payment jama kar diya ho toh verify karwa ke receipt le sakte hain)")
+        }.trim()
     }
 
     /**
@@ -181,17 +89,47 @@ object ShareUtils {
 
         try {
             if (!cleanPhone.isNullOrBlank()) {
-                val url = "https://api.whatsapp.com/send?phone=$cleanPhone&text=${Uri.encode(reminderText)}"
+                val url = "https://api.whatsapp.com/send?phone=$cleanPhone&text=${safeUrlEncode(reminderText)}"
                 val waIntent = Intent(Intent.ACTION_VIEW, Uri.parse(url)).apply {
                     addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
                 }
                 context.startActivity(waIntent)
             } else {
-                openGenericShare(context, reminderText, "Send Rent Reminder via WhatsApp")
+                openGenericShare(context, reminderText, "Send Rent Reminder (WhatsApp / SMS)")
             }
         } catch (e: Exception) {
-            // Fallback to standard share if WhatsApp URI fails
-            openGenericShare(context, reminderText, "Send Rent Reminder via WhatsApp")
+            openGenericShare(context, reminderText, "Send Rent Reminder (WhatsApp / SMS)")
+        }
+    }
+
+    /**
+     * Sends the reminder directly to the tenant's Phone SMS Inbox.
+     * Works on any phone even without WhatsApp or internet.
+     */
+    fun sendSmsReminder(context: Context, rent: RentRecord, tenantPhone: String? = null) {
+        val reminderText = formatRentReminderMessage(rent)
+        val cleanPhone = tenantPhone?.filter { it.isDigit() }?.let { raw ->
+            when {
+                raw.length == 10 -> raw
+                raw.startsWith("0") && raw.length == 11 -> raw.substring(1)
+                raw.startsWith("91") && raw.length == 12 -> raw.substring(2)
+                else -> raw
+            }
+        }
+
+        try {
+            val smsUri = if (!cleanPhone.isNullOrBlank()) {
+                Uri.parse("smsto:$cleanPhone")
+            } else {
+                Uri.parse("smsto:")
+            }
+            val smsIntent = Intent(Intent.ACTION_SENDTO, smsUri).apply {
+                putExtra("sms_body", reminderText)
+                addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+            }
+            context.startActivity(smsIntent)
+        } catch (e: Exception) {
+            openGenericShare(context, reminderText, "Send SMS Rent Reminder")
         }
     }
 

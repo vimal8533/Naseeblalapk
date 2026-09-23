@@ -120,6 +120,7 @@ fun ProfileScreen(
     delegatedToUsernames: List<String> = emptyList(),
     onAddDelegatedUser: ((String) -> Result<Unit>)? = null,
     onRemoveDelegatedUser: ((String) -> Result<Unit>)? = null,
+    onOpenTenantPortal: (() -> Unit)? = null,
     modifier: Modifier = Modifier
 ) {
     val context = LocalContext.current
@@ -614,6 +615,79 @@ fun ProfileScreen(
                 ) {
                     Text(text = "Multi-device Sync:", fontSize = 13.sp)
                     Text(text = "Instant / Realtime", fontWeight = FontWeight.Bold, color = StatusPaid, fontSize = 13.sp)
+                }
+            }
+        }
+
+        // Kirayedaar Self-Service Web Portal Card
+        Spacer(modifier = Modifier.height(14.dp))
+        Card(
+            modifier = Modifier
+                .fillMaxWidth()
+                .testTag("profile_kirayedaar_portal_card"),
+            shape = RoundedCornerShape(16.dp),
+            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+            elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
+        ) {
+            Column(modifier = Modifier.padding(16.dp)) {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Box(
+                        modifier = Modifier
+                            .size(38.dp)
+                            .clip(RoundedCornerShape(10.dp))
+                            .background(GoldAccent.copy(alpha = 0.15f)),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Text("🌐", fontSize = 19.sp)
+                    }
+                    Spacer(modifier = Modifier.width(12.dp))
+                    Column {
+                        Text(
+                            text = "Kirayedaar Web Portal",
+                            fontWeight = FontWeight.Bold,
+                            fontSize = 14.sp
+                        )
+                        Text(
+                            text = "Tenant Self-Service & Online Bill",
+                            fontSize = 11.5.sp,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+                }
+
+                Spacer(modifier = Modifier.height(10.dp))
+                Text(
+                    text = "Official Permanent Domain:",
+                    fontSize = 11.sp,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+                Text(
+                    text = "https://nasseblalmarkt.web.app",
+                    fontSize = 12.5.sp,
+                    fontWeight = FontWeight.Bold,
+                    color = GoldDark
+                )
+
+                if (onOpenTenantPortal != null) {
+                    Spacer(modifier = Modifier.height(12.dp))
+                    OutlinedButton(
+                        onClick = onOpenTenantPortal,
+                        modifier = Modifier.fillMaxWidth(),
+                        shape = RoundedCornerShape(10.dp),
+                        border = androidx.compose.foundation.BorderStroke(1.dp, GoldAccent.copy(alpha = 0.6f)),
+                        colors = ButtonDefaults.outlinedButtonColors(
+                            contentColor = GoldDark
+                        )
+                    ) {
+                        Text(
+                            text = "🌐 Preview Kirayedaar Portal / Lookup Bill",
+                            fontWeight = FontWeight.SemiBold,
+                            fontSize = 13.sp
+                        )
+                    }
                 }
             }
         }

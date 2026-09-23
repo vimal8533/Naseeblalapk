@@ -438,27 +438,6 @@ fun LoginScreen(
                 }
             }
 
-            if (onOpenTenantPortal != null) {
-                Spacer(modifier = Modifier.height(18.dp))
-                OutlinedButton(
-                    onClick = onOpenTenantPortal,
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .height(48.dp),
-                    shape = RoundedCornerShape(14.dp),
-                    border = androidx.compose.foundation.BorderStroke(1.dp, GoldAccent.copy(alpha = 0.5f)),
-                    colors = ButtonDefaults.outlinedButtonColors(
-                        contentColor = GoldAccent
-                    )
-                ) {
-                    Text(
-                        text = "🌐 Kirayedaar Portal / Tenant Self-Service",
-                        fontWeight = FontWeight.SemiBold,
-                        fontSize = 13.5.sp
-                    )
-                }
-            }
-
             Spacer(modifier = Modifier.height(28.dp))
 
             // 4. WhatsApp-style Branding Footer with MoolStone Logo
