@@ -1,5 +1,6 @@
 package com.example.ui.screens
 
+import android.widget.Toast
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -40,8 +41,10 @@ import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.filled.PictureAsPdf
 import androidx.compose.material.icons.filled.Receipt
 import androidx.compose.material.icons.filled.Search
+import androidx.compose.material.icons.filled.Security
 import androidx.compose.material.icons.filled.Send
 import androidx.compose.material.icons.filled.Share
+import androidx.compose.material.icons.filled.Shield
 import androidx.compose.material.icons.filled.Sms
 import androidx.compose.material.icons.filled.Store
 import androidx.compose.material.icons.filled.ChevronRight
@@ -53,6 +56,7 @@ import androidx.compose.material.icons.filled.Warning
 import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.HistoryEdu
 import androidx.compose.material.icons.automirrored.filled.ArrowForwardIos
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
@@ -170,6 +174,8 @@ fun DashboardScreen(
     var showBatchMeterDialog by remember { mutableStateOf(false) }
     var showDuesBreakdownDialog by remember { mutableStateOf(false) }
     var rentForTenantEcho by remember { mutableStateOf<RentRecord?>(null) }
+    var pendingReminderRent by remember { mutableStateOf<RentRecord?>(null) }
+    var pendingReminderWarningType by remember { mutableStateOf<String>("") }
 
     val isPersonalWorkspace = workspaceMode == AppWorkspaceMode.PRIVATE_PERSONAL
     val reminderKey = "${selectedYear}_${selectedMonth}${if (isPersonalWorkspace) "_personal" else ""}"
@@ -186,6 +192,19 @@ fun DashboardScreen(
             rent.year == selectedYear &&
             (rent.isPending || rent.isPartial) &&
             rent.pendingAmount > 0
+        }
+    }
+
+    // Filter pending rents eligible for automatic batch reminders (pauses active promises and claims under review)
+    val eligiblePendingRentsForBatch = remember(pendingRentsForMonth, tenantEchoRecords) {
+        pendingRentsForMonth.filter { rent ->
+            val echoKey = "${rent.month}_${rent.year}_${rent.tenantId}".replace(" ", "_")
+            val echoRecord = tenantEchoRecords[echoKey]
+            val effectivePromiseDate = rent.promisedDate.ifBlank { echoRecord?.promisedDate ?: "" }
+            val hasTenantClaimed = rent.tenantClaimedPaid || (echoRecord?.claimedPaid == true)
+            val isPromiseActive = effectivePromiseDate.isNotBlank() && ShareUtils.isPromiseDateActive(effectivePromiseDate)
+
+            !hasTenantClaimed && !isPromiseActive
         }
     }
 
@@ -256,6 +275,7 @@ fun DashboardScreen(
     val paidCount = remember(rents) { rents.count { it.isPaid } }
     val partialCount = remember(rents) { rents.count { it.isPartial } }
     val pendingOnlyCount = remember(rents) { rents.count { it.isPending } }
+    val queueCount = remember(rents) { rents.count { it.tenantClaimedPaid && !it.isPaid } }
 
     val occupiedCount = remember(shops) { shops.count { it.isOccupied } }
     val totalShops = shops.size
@@ -521,15 +541,22 @@ fun DashboardScreen(
                                             )
                                         }
                                         Spacer(modifier = Modifier.width(10.dp))
+                                        val pausedCount = pendingRentsForMonth.size - eligiblePendingRentsForBatch.size
                                         Column {
                                             Text(
-                                                text = "${pendingRentsForMonth.size} Reminders Pending",
+                                                text = if (pausedCount > 0)
+                                                    "${eligiblePendingRentsForBatch.size} Reminders Ready (${pausedCount} Paused)"
+                                                else
+                                                    "${pendingRentsForMonth.size} Reminders Pending",
                                                 fontWeight = FontWeight.Bold,
                                                 fontSize = 12.5.sp,
                                                 color = NavyPrimary
                                             )
                                             Text(
-                                                text = "₹${pendingRentsForMonth.sumOf { it.pendingAmount }.toInt()} due for $selectedMonth",
+                                                text = if (pausedCount > 0)
+                                                    "₹${eligiblePendingRentsForBatch.sumOf { it.pendingAmount }.toInt()} ready • $pausedCount promised/queue paused"
+                                                else
+                                                    "₹${pendingRentsForMonth.sumOf { it.pendingAmount }.toInt()} due for $selectedMonth",
                                                 fontSize = 11.sp,
                                                 color = MaterialTheme.colorScheme.onSurfaceVariant
                                             )
@@ -817,13 +844,20 @@ fun DashboardScreen(
 
             // 4. Status Filter Chips
             item {
-                val filters = remember(rents.size, pendingOnlyCount, partialCount, paidCount) {
-                    listOf(
+                val filters = remember(rents.size, pendingOnlyCount, partialCount, paidCount, queueCount) {
+                    val list = mutableListOf(
                         "ALL" to "All (${rents.size})",
                         "PENDING" to "Pending ($pendingOnlyCount)",
                         "PARTIAL" to "Partial ($partialCount)",
                         "PAID" to "Paid ($paidCount)"
                     )
+                    // If any claims in verification queue, prominent queue filter chip
+                    if (queueCount > 0) {
+                        list.add(1, "QUEUE" to "🛡️ Verification Queue ($queueCount)")
+                    } else {
+                        list.add("QUEUE" to "🛡️ Queue (0)")
+                    }
+                    list
                 }
 
                 LazyRow(
@@ -834,13 +868,27 @@ fun DashboardScreen(
                 ) {
                     items(filters, key = { it.first }) { (key, label) ->
                         val isSelected = statusFilter == key
-                        val chipBg = if (isSelected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.surfaceVariant
-                        val chipText = if (isSelected) Color.White else MaterialTheme.colorScheme.onSurfaceVariant
+                        val isQueueChip = key == "QUEUE"
+                        val chipBg = when {
+                            isSelected && isQueueChip -> Color(0xFFD97706)
+                            isSelected -> MaterialTheme.colorScheme.primary
+                            isQueueChip && queueCount > 0 -> Color(0xFFFEF3C7)
+                            else -> MaterialTheme.colorScheme.surfaceVariant
+                        }
+                        val chipText = when {
+                            isSelected -> Color.White
+                            isQueueChip && queueCount > 0 -> Color(0xFF92400E)
+                            else -> MaterialTheme.colorScheme.onSurfaceVariant
+                        }
+                        val chipBorder = if (isQueueChip && queueCount > 0 && !isSelected) {
+                            BorderStroke(1.dp, Color(0xFFF59E0B))
+                        } else null
 
                         Box(
                             modifier = Modifier
                                 .clip(RoundedCornerShape(20.dp))
                                 .background(chipBg)
+                                .then(if (chipBorder != null) Modifier.border(chipBorder.width, chipBorder.brush, RoundedCornerShape(20.dp)) else Modifier)
                                 .clickable { onFilterChanged(key) }
                                 .padding(horizontal = 14.dp, vertical = 8.dp)
                         ) {
@@ -848,7 +896,7 @@ fun DashboardScreen(
                                 text = label,
                                 color = chipText,
                                 fontSize = 12.sp,
-                                fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium
+                                fontWeight = if (isSelected || (isQueueChip && queueCount > 0)) FontWeight.Bold else FontWeight.Medium
                             )
                         }
                     }
@@ -901,7 +949,19 @@ fun DashboardScreen(
                         onEditPayment = { rentToCorrect = rent },
                         onEditElectricityMeter = { rentForElectricityMeter = rent },
                         onShare = { ShareUtils.shareRentReceipt(context, rent) },
-                        onWhatsAppReminder = { ShareUtils.sendWhatsAppReminder(context, rent, tenant?.phone) },
+                        onWhatsAppReminder = {
+                            val effectivePromiseDate = rent.promisedDate.ifBlank { echoRecord?.promisedDate ?: "" }
+                            val hasTenantClaimed = rent.tenantClaimedPaid || (echoRecord?.claimedPaid == true)
+                            if (hasTenantClaimed) {
+                                pendingReminderRent = rent
+                                pendingReminderWarningType = "CLAIMED_PENDING"
+                            } else if (effectivePromiseDate.isNotBlank() && ShareUtils.isPromiseDateActive(effectivePromiseDate)) {
+                                pendingReminderRent = rent
+                                pendingReminderWarningType = "PROMISED_ACTIVE"
+                            } else {
+                                ShareUtils.sendWhatsAppReminder(context, rent, tenant?.phone)
+                            }
+                        },
                         onDownloadReceipt = { ReceiptPdfGenerator.generateAndDownloadReceipt(context, rent) },
                         echoRecord = echoRecord,
                         onOpenTenantEcho = { rentForTenantEcho = rent },
@@ -934,7 +994,7 @@ fun DashboardScreen(
         BatchSmsReminderDialog(
             month = selectedMonth,
             year = selectedYear,
-            pendingRents = pendingRentsForMonth,
+            pendingRents = eligiblePendingRentsForBatch,
             tenants = tenants,
             currentUser = currentUser,
             onDismiss = { showBatchSmsDialog = false },
@@ -1005,7 +1065,133 @@ fun DashboardScreen(
             },
             onAdminVerifyPayment = {
                 onVerifyTenantEchoPayment(r.id)
+                // Automatically dispatch receipt to tenant via WhatsApp upon verification
+                val updatedRent = r.copy(
+                    amountPaid = r.amountDue,
+                    status = "PAID",
+                    receiptNumber = if (r.receiptNumber.isNotBlank()) r.receiptNumber else "NLM-${r.year}"
+                )
+                ShareUtils.sendWhatsAppReceipt(context, updatedRent, tenant?.phone)
+                Toast.makeText(context, "Payment verified! Receipt shared to tenant.", Toast.LENGTH_SHORT).show()
                 rentForTenantEcho = null
+            }
+        )
+    }
+
+    // Smart Warning Alert Dialog for Promised / Claimed Reminders
+    pendingReminderRent?.let { r ->
+        val tenant = tenantMap[r.tenantId]
+        val echoKey = "${r.month}_${r.year}_${r.tenantId}".replace(" ", "_")
+        val echoRecord = tenantEchoRecords[echoKey]
+        val effectivePromiseDate = r.promisedDate.ifBlank { echoRecord?.promisedDate ?: "" }
+        val effectivePromiseNote = r.promisedNote.ifBlank { echoRecord?.promisedNote ?: "" }
+        val effectiveClaimNote = r.tenantClaimedNote.ifBlank { echoRecord?.claimedPaidNote ?: "" }
+
+        AlertDialog(
+            onDismissRequest = { pendingReminderRent = null },
+            icon = {
+                Icon(
+                    imageVector = if (pendingReminderWarningType == "CLAIMED_PENDING") Icons.Filled.Shield else Icons.Filled.HourglassBottom,
+                    contentDescription = null,
+                    tint = if (pendingReminderWarningType == "CLAIMED_PENDING") Color(0xFFD97706) else Color(0xFF2563EB),
+                    modifier = Modifier.size(32.dp)
+                )
+            },
+            title = {
+                Text(
+                    text = if (pendingReminderWarningType == "CLAIMED_PENDING")
+                        "⚠️ Payment Under Review"
+                    else
+                        "⏳ Payment Promised by Tenant",
+                    fontWeight = FontWeight.Bold,
+                    fontSize = 17.sp,
+                    color = NavyDark
+                )
+            },
+            text = {
+                Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                    Card(
+                        colors = CardDefaults.cardColors(
+                            containerColor = if (pendingReminderWarningType == "CLAIMED_PENDING") Color(0xFFFEF3C7) else Color(0xFFEFF6FF)
+                        ),
+                        shape = RoundedCornerShape(10.dp),
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Column(modifier = Modifier.padding(10.dp)) {
+                            Text(
+                                text = "${r.tenantName} (${r.shopNumber})",
+                                fontWeight = FontWeight.Bold,
+                                fontSize = 13.sp,
+                                color = NavyDark
+                            )
+                            Spacer(modifier = Modifier.height(2.dp))
+                            if (pendingReminderWarningType == "CLAIMED_PENDING") {
+                                Text(
+                                    text = "Claim: ${effectiveClaimNote.ifBlank { "Reported Paid (Pending verification)" }}",
+                                    fontSize = 11.sp,
+                                    color = Color(0xFF92400E),
+                                    fontWeight = FontWeight.SemiBold
+                                )
+                            } else {
+                                Text(
+                                    text = "📅 Promised Date: $effectivePromiseDate",
+                                    fontSize = 12.sp,
+                                    fontWeight = FontWeight.Bold,
+                                    color = Color(0xFF1D4ED8)
+                                )
+                                if (effectivePromiseNote.isNotBlank()) {
+                                    Text(
+                                        text = "Note: $effectivePromiseNote",
+                                        fontSize = 11.sp,
+                                        color = Color(0xFF3B82F6)
+                                    )
+                                }
+                            }
+                        }
+                    }
+
+                    Text(
+                        text = if (pendingReminderWarningType == "CLAIMED_PENDING")
+                            "Tenant ne already payment ka claim kiya hua hai jo Verification Queue me pending hai. Bina verify kiye reminder bhejne se tenant pareshan ya confused ho sakta hai.\n\nKya aap fir bhi reminder bhejna chahte hain?"
+                        else
+                            "Tenant ne $effectivePromiseDate tak payment karne ka promise kiya hua hai aur ye taareekh abhi tak aayi nahi hai.\n\nPromise date se pehle reminder bhejne se tenant pareshan ho sakta hai.\n\nKya aap fir bhi reminder bhejna chahte hain?",
+                        fontSize = 12.5.sp,
+                        color = MaterialTheme.colorScheme.onSurface,
+                        lineHeight = 17.sp
+                    )
+                }
+            },
+            confirmButton = {
+                Button(
+                    onClick = {
+                        val rentToSend = r
+                        val phone = tenant?.phone
+                        pendingReminderRent = null
+                        ShareUtils.sendWhatsAppReminder(context, rentToSend, phone)
+                    },
+                    colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFDC2626)),
+                    shape = RoundedCornerShape(8.dp)
+                ) {
+                    Text("Send Anyway (फिर भी भेजें)", fontWeight = FontWeight.Bold, color = Color.White, fontSize = 12.sp)
+                }
+            },
+            dismissButton = {
+                OutlinedButton(
+                    onClick = {
+                        val wasClaim = pendingReminderWarningType == "CLAIMED_PENDING"
+                        pendingReminderRent = null
+                        if (wasClaim) {
+                            rentForTenantEcho = r
+                        }
+                    },
+                    shape = RoundedCornerShape(8.dp)
+                ) {
+                    Text(
+                        text = if (pendingReminderWarningType == "CLAIMED_PENDING") "Review Claim First" else "Wait (मत भेजो)",
+                        fontWeight = FontWeight.SemiBold,
+                        fontSize = 12.sp
+                    )
+                }
             }
         )
     }
@@ -1335,7 +1521,7 @@ fun RentItemCard(
                     Box(
                         modifier = Modifier
                             .padding(top = 2.dp)
-                            .size(40.dp)
+                            .size(38.dp)
                             .clip(CircleShape)
                             .background(if (isFlatProperty) Color(0xFF0F766E) else NavyDark),
                         contentAlignment = Alignment.Center
@@ -1348,7 +1534,7 @@ fun RentItemCard(
                             },
                             contentDescription = null,
                             tint = if (isFlatProperty) Color.White else GoldAccent,
-                            modifier = Modifier.size(20.dp)
+                            modifier = Modifier.size(19.dp)
                         )
                     }
                     Spacer(modifier = Modifier.width(9.dp))
@@ -1357,40 +1543,37 @@ fun RentItemCard(
                         Text(
                             text = topShopName,
                             fontWeight = FontWeight.ExtraBold,
-                            fontSize = 15.sp,
-                            lineHeight = 19.sp,
+                            fontSize = 14.5.sp,
+                            lineHeight = 18.sp,
                             color = if (isFlatProperty) Color(0xFF0F766E) else NavyDark,
-                            softWrap = true
+                            maxLines = 2,
+                            overflow = TextOverflow.Ellipsis
                         )
                         Spacer(modifier = Modifier.height(2.dp))
                         // 2. BELOW: Tenant Name + Phone Number (Wrapped cleanly)
-                        Row(
-                            verticalAlignment = Alignment.CenterVertically,
-                            modifier = Modifier.fillMaxWidth()
-                        ) {
-                            Text(
-                                text = buildString {
-                                    append(rent.tenantName)
-                                    if (tenantPhone.isNotBlank()) {
-                                        append(" • $tenantPhone")
-                                    }
-                                },
-                                fontSize = 12.sp,
-                                lineHeight = 16.sp,
-                                fontWeight = FontWeight.SemiBold,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                softWrap = true
-                            )
-                        }
+                        Text(
+                            text = buildString {
+                                append(rent.tenantName)
+                                if (tenantPhone.isNotBlank()) {
+                                    append(" • $tenantPhone")
+                                }
+                            },
+                            fontSize = 11.5.sp,
+                            lineHeight = 15.sp,
+                            fontWeight = FontWeight.SemiBold,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            maxLines = 2,
+                            overflow = TextOverflow.Ellipsis
+                        )
                     }
                 }
 
                 Spacer(modifier = Modifier.width(6.dp))
 
-                // Badges Row: Personal + Shop Count + Cycle + Status + Edit Icon
-                Row(
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(4.dp),
+                // Badges: FlowRow to prevent overflowing when multiple badges exist
+                FlowRow(
+                    verticalArrangement = Arrangement.spacedBy(4.dp),
+                    horizontalArrangement = Arrangement.End,
                     modifier = Modifier.padding(top = 2.dp)
                 ) {
                     if (rent.isPersonal) {
@@ -1822,22 +2005,30 @@ fun RentItemCard(
                 Spacer(modifier = Modifier.height(6.dp))
                 Row(
                     modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceBetween
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
                 ) {
                     if (rent.paidDate.isNotBlank()) {
                         Text(
                             text = "Paid on: ${rent.paidDate} (${rent.paymentMode})",
                             fontSize = 10.5.sp,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis,
+                            modifier = Modifier.weight(1f, fill = false)
                         )
+                    }
+                    if (rent.paidDate.isNotBlank() && rent.notes.isNotBlank()) {
+                        Spacer(modifier = Modifier.width(8.dp))
                     }
                     if (rent.notes.isNotBlank()) {
                         Text(
                             text = rent.notes,
                             fontSize = 10.5.sp,
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
-                            maxLines = 1,
-                            overflow = TextOverflow.Ellipsis
+                            maxLines = 2,
+                            overflow = TextOverflow.Ellipsis,
+                            modifier = Modifier.weight(1.5f, fill = false)
                         )
                     }
                 }
@@ -1871,7 +2062,7 @@ fun RentItemCard(
                     ) {
                         Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.weight(1f)) {
                             Icon(
-                                imageVector = if (hasTenantClaimed) Icons.Filled.HourglassBottom else Icons.Filled.CalendarToday,
+                                imageVector = if (hasTenantClaimed) Icons.Filled.Shield else Icons.Filled.CalendarToday,
                                 contentDescription = null,
                                 tint = if (hasTenantClaimed) Color(0xFFB45309) else Color(0xFF1D4ED8),
                                 modifier = Modifier.size(15.dp)
@@ -1880,14 +2071,14 @@ fun RentItemCard(
                             Column {
                                 if (hasTenantClaimed) {
                                     Text(
-                                        text = "⚡ Tenant Claimed Payment - Verify Now",
+                                        text = "🛡️ Tenant Claimed (Anti-Fraud Queue)",
                                         fontWeight = FontWeight.Bold,
                                         fontSize = 11.sp,
                                         color = Color(0xFF92400E)
                                     )
                                     if (effectiveClaimNote.isNotBlank()) {
                                         Text(
-                                            text = "Ref: $effectiveClaimNote",
+                                            text = effectiveClaimNote,
                                             fontSize = 9.5.sp,
                                             color = Color(0xFFB45309),
                                             maxLines = 1,
@@ -1895,11 +2086,12 @@ fun RentItemCard(
                                         )
                                     }
                                 } else {
+                                    val isPromiseActive = effectivePromiseDate.isNotBlank() && ShareUtils.isPromiseDateActive(effectivePromiseDate)
                                     Text(
-                                        text = "📅 Tenant Promised: $effectivePromiseDate",
+                                        text = if (isPromiseActive) "📅 Tenant Promised: $effectivePromiseDate (Reminder Paused)" else "🚨 Promise Passed: $effectivePromiseDate",
                                         fontWeight = FontWeight.Bold,
                                         fontSize = 11.sp,
-                                        color = Color(0xFF1E40AF)
+                                        color = if (isPromiseActive) Color(0xFF1E40AF) else Color(0xFFDC2626)
                                     )
                                     if (effectivePromiseNote.isNotBlank()) {
                                         Text(
@@ -1967,6 +2159,23 @@ fun RentItemCard(
 
                 // WhatsApp Reminder Button (for pending/partial) or Download PDF Button (for paid)
                 if (rent.pendingAmount > 0) {
+                    val isPromiseActive = effectivePromiseDate.isNotBlank() && ShareUtils.isPromiseDateActive(effectivePromiseDate)
+                    val isPromiseExpired = effectivePromiseDate.isNotBlank() && !isPromiseActive
+
+                    val btnBgColor = when {
+                        hasTenantClaimed -> Color(0xFFD97706)
+                        isPromiseActive -> Color(0xFF2563EB)
+                        isPromiseExpired -> Color(0xFFDC2626)
+                        else -> Color(0xFF15803D)
+                    }
+
+                    val btnLabel = when {
+                        hasTenantClaimed -> "🛡️ Review Claim"
+                        isPromiseActive -> "⏳ Due: ${effectivePromiseDate.take(10)}"
+                        isPromiseExpired -> "🚨 Overdue (${effectivePromiseDate.take(6)})"
+                        else -> "💬 Reminder"
+                    }
+
                     Button(
                         onClick = onWhatsAppReminder,
                         modifier = Modifier
@@ -1974,15 +2183,17 @@ fun RentItemCard(
                             .height(38.dp)
                             .testTag("wa_reminder_btn_${rent.id}"),
                         colors = ButtonDefaults.buttonColors(
-                            containerColor = Color(0xFF15803D), // WhatsApp Green
+                            containerColor = btnBgColor,
                             contentColor = Color.White
                         ),
                         shape = RoundedCornerShape(10.dp)
                     ) {
                         Text(
-                            text = "💬 Reminder",
-                            fontSize = 12.sp,
-                            fontWeight = FontWeight.Bold
+                            text = btnLabel,
+                            fontSize = 11.5.sp,
+                            fontWeight = FontWeight.Bold,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis
                         )
                     }
                 } else {
@@ -2196,10 +2407,12 @@ fun StatCard(
             Spacer(modifier = Modifier.height(6.dp))
             Text(
                 text = amount,
-                fontSize = 18.sp,
+                fontSize = if (amount.length > 9) 15.sp else 18.sp,
                 fontWeight = FontWeight.ExtraBold,
                 color = if (accentColor == NavyPrimary) NavyDark else accentColor,
-                letterSpacing = (-0.3).sp
+                letterSpacing = (-0.3).sp,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis
             )
             Spacer(modifier = Modifier.height(2.dp))
             Text(
@@ -2207,7 +2420,9 @@ fun StatCard(
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                 fontSize = 10.5.sp,
-                fontWeight = FontWeight.Medium
+                fontWeight = FontWeight.Medium,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis
             )
         }
     }

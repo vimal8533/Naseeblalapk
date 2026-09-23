@@ -58,6 +58,9 @@ import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.foundation.layout.ExperimentalLayoutApi
+import androidx.compose.foundation.layout.FlowRow
+import androidx.compose.ui.text.style.TextOverflow
 import com.example.model.Shop
 import com.example.ui.components.AddShopDialog
 import com.example.ui.components.ShopsSkeleton
@@ -294,6 +297,7 @@ fun ShopsScreen(
     }
 }
 
+@OptIn(ExperimentalLayoutApi::class)
 @Composable
 fun ShopCardItem(
     shop: Shop,
@@ -313,13 +317,16 @@ fun ShopCardItem(
         elevation = CardDefaults.cardElevation(defaultElevation = 1.dp)
     ) {
         Column(modifier = Modifier.padding(14.dp)) {
-            // Header: Shop Number & Occupancy Badge
+            // Header: Shop Number, Unit Name & Badges
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
+                verticalAlignment = Alignment.Top
             ) {
-                Row(verticalAlignment = Alignment.CenterVertically) {
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    modifier = Modifier.weight(1f)
+                ) {
                     Box(
                         modifier = Modifier
                             .clip(RoundedCornerShape(6.dp))
@@ -343,10 +350,21 @@ fun ShopCardItem(
                         text = shopDisplayName,
                         fontWeight = FontWeight.Bold,
                         fontSize = 15.sp,
-                        color = NavyDark
+                        color = NavyDark,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                        modifier = Modifier.weight(1f, fill = false)
                     )
+                }
+
+                Spacer(modifier = Modifier.width(6.dp))
+
+                // Badges (FlowRow to prevent line overflow)
+                FlowRow(
+                    verticalArrangement = Arrangement.spacedBy(4.dp),
+                    horizontalArrangement = Arrangement.End
+                ) {
                     if (shop.isPersonal) {
-                        Spacer(modifier = Modifier.width(6.dp))
                         Box(
                             modifier = Modifier
                                 .clip(RoundedCornerShape(8.dp))
@@ -362,7 +380,6 @@ fun ShopCardItem(
                             )
                         }
                     } else if (shop.isFlat) {
-                        Spacer(modifier = Modifier.width(6.dp))
                         Box(
                             modifier = Modifier
                                 .clip(RoundedCornerShape(8.dp))
@@ -378,26 +395,26 @@ fun ShopCardItem(
                             )
                         }
                     }
-                }
 
-                // Occupancy Badge
-                Box(
-                    modifier = Modifier
-                        .clip(RoundedCornerShape(20.dp))
-                        .background(if (isOccupied) StatusPaidBg else StatusPendingBg)
-                        .border(
-                            width = 0.5.dp,
-                            color = if (isOccupied) StatusPaidBorder else StatusPendingBorder,
-                            shape = RoundedCornerShape(20.dp)
+                    // Occupancy Badge
+                    Box(
+                        modifier = Modifier
+                            .clip(RoundedCornerShape(20.dp))
+                            .background(if (isOccupied) StatusPaidBg else StatusPendingBg)
+                            .border(
+                                width = 0.5.dp,
+                                color = if (isOccupied) StatusPaidBorder else StatusPendingBorder,
+                                shape = RoundedCornerShape(20.dp)
+                            )
+                            .padding(horizontal = 9.dp, vertical = 3.dp)
+                    ) {
+                        Text(
+                            text = if (isOccupied) "OCCUPIED ✓" else "VACANT",
+                            color = if (isOccupied) StatusPaid else StatusPending,
+                            fontSize = 10.sp,
+                            fontWeight = FontWeight.Bold
                         )
-                        .padding(horizontal = 9.dp, vertical = 3.dp)
-                ) {
-                    Text(
-                        text = if (isOccupied) "OCCUPIED ✓" else "VACANT",
-                        color = if (isOccupied) StatusPaid else StatusPending,
-                        fontSize = 10.sp,
-                        fontWeight = FontWeight.Bold
-                    )
+                    }
                 }
             }
 
@@ -487,20 +504,30 @@ fun ShopCardItem(
                 Spacer(modifier = Modifier.height(6.dp))
                 Row(
                     modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceBetween
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
                 ) {
                     if (shop.electricityMeter.isNotBlank()) {
                         Text(
                             text = "Meter: ${shop.electricityMeter}",
                             fontSize = 10.5.sp,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis,
+                            modifier = Modifier.weight(1f, fill = false)
                         )
+                    }
+                    if (shop.electricityMeter.isNotBlank() && shop.notes.isNotBlank()) {
+                        Spacer(modifier = Modifier.width(8.dp))
                     }
                     if (shop.notes.isNotBlank()) {
                         Text(
                             text = shop.notes,
                             fontSize = 10.5.sp,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            maxLines = 2,
+                            overflow = TextOverflow.Ellipsis,
+                            modifier = Modifier.weight(1.5f, fill = false)
                         )
                     }
                 }

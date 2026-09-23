@@ -2,6 +2,8 @@ package com.example.ui.screens
 
 import android.content.Intent
 import android.net.Uri
+import android.widget.Toast
+import com.example.ui.util.ShareUtils
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.horizontalScroll
@@ -526,6 +528,13 @@ fun TenantsScreen(
             },
             onAdminVerifyPayment = {
                 onVerifyTenantEchoPayment(currentRent.id)
+                val updatedRent = currentRent.copy(
+                    amountPaid = currentRent.amountDue,
+                    status = "PAID",
+                    receiptNumber = if (currentRent.receiptNumber.isNotBlank()) currentRent.receiptNumber else "NLM-${currentRent.year}"
+                )
+                ShareUtils.sendWhatsAppReceipt(context, updatedRent, t.phone)
+                Toast.makeText(context, "Payment verified! Receipt shared to tenant.", Toast.LENGTH_SHORT).show()
                 tenantForEchoPortal = null
             }
         )
@@ -569,7 +578,7 @@ fun TenantCardItem(
         elevation = CardDefaults.cardElevation(defaultElevation = 1.dp)
     ) {
         Column(modifier = Modifier.padding(14.dp)) {
-            // Top Row: Avatar + Shop/Business Name (Top) & Tenant Name + Phone (Below) (Left) and Shop Count + Cycle Badges (Right)
+            // Top Row: Avatar + Shop/Business Name (Top) & Tenant Name + Phone (Below) (Left) and Badges (Right)
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.SpaceBetween,
@@ -584,16 +593,16 @@ fun TenantCardItem(
                     Box(
                         modifier = Modifier
                             .padding(top = 2.dp)
-                            .size(40.dp)
+                            .size(38.dp)
                             .clip(CircleShape)
-                            .background(NavyDark),
+                            .background(if (tenant.isFlat) Color(0xFF0F766E) else NavyDark),
                         contentAlignment = Alignment.Center
                     ) {
                         Text(
                             text = avatarLetter,
                             fontWeight = FontWeight.ExtraBold,
-                            fontSize = 16.sp,
-                            color = GoldAccent
+                            fontSize = 15.sp,
+                            color = if (tenant.isFlat) Color.White else GoldAccent
                         )
                     }
                     Spacer(modifier = Modifier.width(10.dp))
@@ -603,10 +612,11 @@ fun TenantCardItem(
                         Text(
                             text = mainTitle,
                             fontWeight = FontWeight.Bold,
-                            fontSize = 15.5.sp,
-                            lineHeight = 19.sp,
-                            color = NavyDark,
-                            softWrap = true
+                            fontSize = 15.sp,
+                            lineHeight = 18.sp,
+                            color = if (tenant.isFlat) Color(0xFF0F766E) else NavyDark,
+                            maxLines = 2,
+                            overflow = TextOverflow.Ellipsis
                         )
                         Spacer(modifier = Modifier.height(2.dp))
                         // Tenant Name and Phone underneath
@@ -622,10 +632,11 @@ fun TenantCardItem(
                         if (subInfo.isNotBlank()) {
                             Text(
                                 text = subInfo,
-                                fontSize = 12.sp,
-                                lineHeight = 16.sp,
+                                fontSize = 11.5.sp,
+                                lineHeight = 15.sp,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                softWrap = true
+                                maxLines = 2,
+                                overflow = TextOverflow.Ellipsis
                             )
                         }
                     }
@@ -633,10 +644,10 @@ fun TenantCardItem(
 
                 Spacer(modifier = Modifier.width(8.dp))
 
-                // Badges Row: Count + Cycle + (Optional Personal or Flat)
-                Row(
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(4.dp),
+                // Badges: FlowRow to prevent horizontal clipping when screen is narrow
+                FlowRow(
+                    verticalArrangement = Arrangement.spacedBy(4.dp),
+                    horizontalArrangement = Arrangement.End,
                     modifier = Modifier.padding(top = 2.dp)
                 ) {
                     if (tenant.isPersonal) {
@@ -1082,13 +1093,31 @@ fun TenantCardItem(
                 Spacer(modifier = Modifier.height(6.dp))
                 Row(
                     modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceBetween
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
                 ) {
                     if (tenant.idProof.isNotBlank()) {
-                        Text(text = "ID: ${tenant.idProof}", fontSize = 10.5.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        Text(
+                            text = "ID: ${tenant.idProof}",
+                            fontSize = 10.5.sp,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis,
+                            modifier = Modifier.weight(1f, fill = false)
+                        )
+                    }
+                    if (tenant.idProof.isNotBlank() && tenant.notes.isNotBlank()) {
+                        Spacer(modifier = Modifier.width(8.dp))
                     }
                     if (tenant.notes.isNotBlank()) {
-                        Text(text = tenant.notes, fontSize = 10.5.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        Text(
+                            text = tenant.notes,
+                            fontSize = 10.5.sp,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            maxLines = 2,
+                            overflow = TextOverflow.Ellipsis,
+                            modifier = Modifier.weight(1.5f, fill = false)
+                        )
                     }
                 }
             }
@@ -1121,10 +1150,10 @@ fun TenantCardItem(
             Spacer(modifier = Modifier.height(10.dp))
 
             // Bottom Actions: Call, WhatsApp, Edit, Delete
-            Row(
+            FlowRow(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
+                verticalArrangement = Arrangement.spacedBy(6.dp)
             ) {
                 Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                     // Call Button
@@ -1147,7 +1176,9 @@ fun TenantCardItem(
                             text = if (tenant.phone.isNotBlank()) tenant.phone else "Call",
                             fontSize = 11.sp,
                             fontWeight = FontWeight.SemiBold,
-                            color = StatusPaid
+                            color = StatusPaid,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis
                         )
                     }
 

@@ -40,7 +40,9 @@ import androidx.compose.material.icons.filled.OpenInNew
 import androidx.compose.material.icons.filled.Payments
 import androidx.compose.material.icons.filled.Phone
 import androidx.compose.material.icons.filled.Receipt
+import androidx.compose.material.icons.filled.Security
 import androidx.compose.material.icons.filled.Share
+import androidx.compose.material.icons.filled.Shield
 import androidx.compose.material.icons.filled.Verified
 import androidx.compose.material.icons.filled.Warning
 import androidx.compose.material3.Button
@@ -131,7 +133,34 @@ fun TenantEchoPortalDialog(
 
     var promiseDateInput by remember { mutableStateOf(rent.promisedDate.ifBlank { echoRecord?.promisedDate ?: "" }) }
     var promiseNoteInput by remember { mutableStateOf(rent.promisedNote.ifBlank { echoRecord?.promisedNote ?: "" }) }
-    var claimNoteInput by remember { mutableStateOf(rent.tenantClaimedNote.ifBlank { echoRecord?.claimedPaidNote ?: "" }) }
+    var claimNoteInput by remember {
+        mutableStateOf(
+            if (rent.tenantClaimedNote.contains("|")) {
+                rent.tenantClaimedNote.substringAfter("|").trim()
+            } else ""
+        )
+    }
+    var paymentMode by remember {
+        mutableStateOf(
+            if (rent.tenantClaimedNote.startsWith("UTR:", ignoreCase = true)) "ONLINE" else "CASH"
+        )
+    }
+    var cashReceiverInput by remember {
+        mutableStateOf(
+            if (rent.tenantClaimedNote.startsWith("CASH:", ignoreCase = true)) {
+                rent.tenantClaimedNote.substringAfter("CASH:").substringBefore("|").replace("Given to", "", ignoreCase = true).trim()
+            } else ""
+        )
+    }
+    var utrInput by remember {
+        mutableStateOf(
+            if (rent.tenantClaimedNote.startsWith("UTR:", ignoreCase = true)) {
+                rent.tenantClaimedNote.substringAfter("UTR:").substringBefore("|").trim()
+            } else ""
+        )
+    }
+    var claimErrorMessage by remember { mutableStateOf<String?>(null) }
+    var isSubmittingClaim by remember { mutableStateOf(false) }
 
     val hasClaimedPaid = rent.tenantClaimedPaid || (echoRecord?.claimedPaid == true)
     val isFullPaid = rent.isPaid
@@ -514,11 +543,13 @@ fun TenantEchoPortalDialog(
                                         )
                                         val note = rent.tenantClaimedNote.ifBlank { echoRecord?.claimedPaidNote ?: "" }
                                         if (note.isNotBlank()) {
-                                            Spacer(modifier = Modifier.height(4.dp))
+                                            Spacer(modifier = Modifier.height(6.dp))
+                                            val isCashClaim = note.startsWith("CASH:", ignoreCase = true)
                                             Text(
-                                                text = "Tenant Note: $note",
-                                                fontSize = 10.5.sp,
-                                                color = Color.White.copy(alpha = 0.8f)
+                                                text = if (isCashClaim) "💵 $note" else "📱 $note",
+                                                fontSize = 11.sp,
+                                                fontWeight = FontWeight.SemiBold,
+                                                color = if (isCashClaim) Color(0xFF6EE7B7) else Color(0xFF93C5FD)
                                             )
                                         }
                                     }
@@ -605,24 +636,25 @@ fun TenantEchoPortalDialog(
                                             tint = Color.White
                                         )
                                         Spacer(modifier = Modifier.width(4.dp))
-                                        Text("Download Receipt PDF", fontSize = 11.5.sp, fontWeight = FontWeight.Bold, color = Color.White)
+                                        Text("PDF Receipt", fontSize = 11.5.sp, fontWeight = FontWeight.Bold, color = Color.White)
                                     }
 
-                                    OutlinedButton(
+                                    Button(
                                         onClick = {
-                                            ShareUtils.shareRentReceipt(context, rent)
+                                            ShareUtils.sendWhatsAppReceipt(context, rent, tenant?.phone)
                                         },
-                                        modifier = Modifier.weight(0.9f),
+                                        modifier = Modifier.weight(1.2f),
                                         shape = RoundedCornerShape(8.dp),
-                                        colors = ButtonDefaults.outlinedButtonColors(contentColor = Color.White)
+                                        colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF15803D))
                                     ) {
                                         Icon(
                                             imageVector = Icons.Filled.Share,
                                             contentDescription = null,
-                                            modifier = Modifier.size(14.dp)
+                                            modifier = Modifier.size(14.dp),
+                                            tint = Color.White
                                         )
                                         Spacer(modifier = Modifier.width(4.dp))
-                                        Text("Share Receipt", fontSize = 11.5.sp)
+                                        Text("Send to WhatsApp", fontSize = 11.5.sp, fontWeight = FontWeight.Bold, color = Color.White)
                                     }
                                 }
                             }
@@ -814,12 +846,12 @@ fun TenantEchoPortalDialog(
                             }
                         }
 
-                        // Action 2: Tenant presses "I Have Paid"
+                        // Action 2: Tenant presses "I Have Paid" (Cash or Online Transfer)
                         Card(
                             modifier = Modifier.fillMaxWidth(),
                             colors = CardDefaults.cardColors(containerColor = Color(0xFF1E293B)),
                             shape = RoundedCornerShape(12.dp),
-                            border = androidx.compose.foundation.BorderStroke(0.5.dp, Color(0xFF334155))
+                            border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFF10B981).copy(alpha = 0.5f))
                         ) {
                             Column(modifier = Modifier.padding(12.dp)) {
                                 Row(
@@ -832,24 +864,35 @@ fun TenantEchoPortalDialog(
                                             imageVector = Icons.Filled.Payments,
                                             contentDescription = null,
                                             tint = Color(0xFF10B981),
-                                            modifier = Modifier.size(16.dp)
+                                            modifier = Modifier.size(17.dp)
                                         )
                                         Spacer(modifier = Modifier.width(6.dp))
-                                        Text(
-                                            text = "Claim \"I Have Paid\"",
-                                            fontWeight = FontWeight.Bold,
-                                            fontSize = 12.sp,
-                                            color = Color.White
-                                        )
+                                        Column {
+                                            Text(
+                                                text = "Claim \"I Have Paid\"",
+                                                fontWeight = FontWeight.Bold,
+                                                fontSize = 12.sp,
+                                                color = Color.White
+                                            )
+                                            Text(
+                                                text = "Cash (नकद) ya Online (UTR) darj karein",
+                                                fontSize = 9.5.sp,
+                                                color = Color(0xFF34D399)
+                                            )
+                                        }
                                     }
 
                                     TextButton(
-                                        onClick = { showClaimPaidSection = !showClaimPaidSection }
+                                        onClick = {
+                                            showClaimPaidSection = !showClaimPaidSection
+                                            claimErrorMessage = null
+                                        }
                                     ) {
                                         Text(
                                             text = if (showClaimPaidSection) "Cancel" else "Claim Paid",
                                             fontSize = 11.5.sp,
-                                            color = Color(0xFF10B981)
+                                            color = Color(0xFF10B981),
+                                            fontWeight = FontWeight.Bold
                                         )
                                     }
                                 }
@@ -859,36 +902,334 @@ fun TenantEchoPortalDialog(
                                         modifier = Modifier.padding(top = 8.dp),
                                         verticalArrangement = Arrangement.spacedBy(8.dp)
                                     ) {
-                                        OutlinedTextField(
-                                            value = claimNoteInput,
-                                            onValueChange = { claimNoteInput = it },
-                                            label = { Text("Payment Details / UTR / Cash given to") },
-                                            placeholder = { Text("e.g. Paid in cash to Sub-Admin on 5th") },
-                                            singleLine = true,
+                                        // Mode Switcher: CASH vs ONLINE
+                                        Row(
                                             modifier = Modifier
                                                 .fillMaxWidth()
-                                                .testTag("tenant_claim_paid_note_input"),
-                                            colors = OutlinedTextFieldDefaults.colors(
-                                                focusedBorderColor = Color(0xFF10B981),
-                                                unfocusedBorderColor = Color(0xFF475569),
-                                                focusedTextColor = Color.White,
-                                                unfocusedTextColor = Color.White
+                                                .clip(RoundedCornerShape(8.dp))
+                                                .background(Color(0xFF0F172A))
+                                                .padding(3.dp),
+                                            horizontalArrangement = Arrangement.spacedBy(4.dp)
+                                        ) {
+                                            // Cash Option
+                                            Box(
+                                                modifier = Modifier
+                                                    .weight(1f)
+                                                    .clip(RoundedCornerShape(6.dp))
+                                                    .background(if (paymentMode == "CASH") Color(0xFF059669) else Color.Transparent)
+                                                    .clickable {
+                                                        paymentMode = "CASH"
+                                                        claimErrorMessage = null
+                                                    }
+                                                    .padding(vertical = 7.dp),
+                                                contentAlignment = Alignment.Center
+                                            ) {
+                                                Row(verticalAlignment = Alignment.CenterVertically) {
+                                                    Icon(
+                                                        imageVector = Icons.Filled.Payments,
+                                                        contentDescription = null,
+                                                        tint = if (paymentMode == "CASH") Color.White else Color(0xFF94A3B8),
+                                                        modifier = Modifier.size(14.dp)
+                                                    )
+                                                    Spacer(modifier = Modifier.width(4.dp))
+                                                    Text(
+                                                        text = "💵 Cash (नकद)",
+                                                        fontSize = 11.sp,
+                                                        fontWeight = if (paymentMode == "CASH") FontWeight.Bold else FontWeight.Medium,
+                                                        color = if (paymentMode == "CASH") Color.White else Color(0xFF94A3B8)
+                                                    )
+                                                }
+                                            }
+
+                                            // Online / Bank Transfer Option
+                                            Box(
+                                                modifier = Modifier
+                                                    .weight(1f)
+                                                    .clip(RoundedCornerShape(6.dp))
+                                                    .background(if (paymentMode == "ONLINE") Color(0xFF0284C7) else Color.Transparent)
+                                                    .clickable {
+                                                        paymentMode = "ONLINE"
+                                                        claimErrorMessage = null
+                                                    }
+                                                    .padding(vertical = 7.dp),
+                                                contentAlignment = Alignment.Center
+                                            ) {
+                                                Row(verticalAlignment = Alignment.CenterVertically) {
+                                                    Icon(
+                                                        imageVector = Icons.Filled.Shield,
+                                                        contentDescription = null,
+                                                        tint = if (paymentMode == "ONLINE") Color.White else Color(0xFF94A3B8),
+                                                        modifier = Modifier.size(14.dp)
+                                                    )
+                                                    Spacer(modifier = Modifier.width(4.dp))
+                                                    Text(
+                                                        text = "📱 Online (UTR/Ref)",
+                                                        fontSize = 11.sp,
+                                                        fontWeight = if (paymentMode == "ONLINE") FontWeight.Bold else FontWeight.Medium,
+                                                        color = if (paymentMode == "ONLINE") Color.White else Color(0xFF94A3B8)
+                                                    )
+                                                }
+                                            }
+                                        }
+
+                                        if (paymentMode == "CASH") {
+                                            // CASH MODE UI
+                                            Box(
+                                                modifier = Modifier
+                                                    .fillMaxWidth()
+                                                    .clip(RoundedCornerShape(8.dp))
+                                                    .background(Color(0xFF064E3B).copy(alpha = 0.5f))
+                                                    .border(0.5.dp, Color(0xFF059669), RoundedCornerShape(8.dp))
+                                                    .padding(horizontal = 10.dp, vertical = 6.dp)
+                                            ) {
+                                                Row(verticalAlignment = Alignment.CenterVertically) {
+                                                    Icon(
+                                                        imageVector = Icons.Filled.Info,
+                                                        contentDescription = null,
+                                                        tint = Color(0xFF34D399),
+                                                        modifier = Modifier.size(14.dp)
+                                                    )
+                                                    Spacer(modifier = Modifier.width(6.dp))
+                                                    Text(
+                                                        text = "Cash jama karne ke baad batayein ki kis authorized vyakti ya office me diya. Admin verify karke receipt release karega.",
+                                                        fontSize = 9.5.sp,
+                                                        color = Color(0xFFD1FAE5),
+                                                        lineHeight = 13.sp
+                                                    )
+                                                }
+                                            }
+
+                                            // Quick chips for who received cash
+                                            Text(
+                                                text = "Kisko Cash Diya? (Quick select):",
+                                                fontSize = 10.sp,
+                                                color = Color(0xFF94A3B8)
                                             )
-                                        )
+                                            Row(
+                                                modifier = Modifier.fillMaxWidth(),
+                                                horizontalArrangement = Arrangement.spacedBy(6.dp)
+                                            ) {
+                                                val suggestions = listOf("Office Counter", "Munshi Ji", "Owner / Admin", "Collector")
+                                                suggestions.forEach { name ->
+                                                    val isSelected = cashReceiverInput == name
+                                                    Box(
+                                                        modifier = Modifier
+                                                            .clip(RoundedCornerShape(16.dp))
+                                                            .background(if (isSelected) Color(0xFF059669) else Color(0xFF334155))
+                                                            .clickable {
+                                                                cashReceiverInput = name
+                                                                claimErrorMessage = null
+                                                            }
+                                                            .padding(horizontal = 8.dp, vertical = 4.dp)
+                                                    ) {
+                                                        Text(
+                                                            text = name,
+                                                            fontSize = 10.sp,
+                                                            color = Color.White,
+                                                            fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal
+                                                        )
+                                                    }
+                                                }
+                                            }
+
+                                            // Receiver Name Field
+                                            OutlinedTextField(
+                                                value = cashReceiverInput,
+                                                onValueChange = {
+                                                    cashReceiverInput = it
+                                                    claimErrorMessage = null
+                                                },
+                                                label = { Text("Cash Given To (कौशल / किसे नकद दिया?) *") },
+                                                placeholder = { Text("e.g. Office Counter, Munshi Ji, Ramu") },
+                                                singleLine = true,
+                                                modifier = Modifier
+                                                    .fillMaxWidth()
+                                                    .testTag("tenant_cash_receiver_input"),
+                                                colors = OutlinedTextFieldDefaults.colors(
+                                                    focusedBorderColor = Color(0xFF10B981),
+                                                    unfocusedBorderColor = Color(0xFF475569),
+                                                    focusedTextColor = Color.White,
+                                                    unfocusedTextColor = Color.White,
+                                                    focusedLabelColor = Color(0xFF34D399),
+                                                    unfocusedLabelColor = Color(0xFF94A3B8)
+                                                )
+                                            )
+
+                                            // Optional Cash Note / Slip No
+                                            OutlinedTextField(
+                                                value = claimNoteInput,
+                                                onValueChange = {
+                                                    claimNoteInput = it
+                                                    claimErrorMessage = null
+                                                },
+                                                label = { Text("Cash Slip No. / Time / Remarks (Optional)") },
+                                                placeholder = { Text("e.g. Paid ₹5000 at 3:00 PM, Slip #21") },
+                                                singleLine = true,
+                                                modifier = Modifier
+                                                    .fillMaxWidth()
+                                                    .testTag("tenant_cash_note_input"),
+                                                colors = OutlinedTextFieldDefaults.colors(
+                                                    focusedBorderColor = Color(0xFF10B981),
+                                                    unfocusedBorderColor = Color(0xFF475569),
+                                                    focusedTextColor = Color.White,
+                                                    unfocusedTextColor = Color.White,
+                                                    focusedLabelColor = Color(0xFF34D399),
+                                                    unfocusedLabelColor = Color(0xFF94A3B8)
+                                                )
+                                            )
+                                        } else {
+                                            // ONLINE / UTR MODE UI
+                                            Box(
+                                                modifier = Modifier
+                                                    .fillMaxWidth()
+                                                    .clip(RoundedCornerShape(8.dp))
+                                                    .background(Color(0xFF0C4A6E).copy(alpha = 0.5f))
+                                                    .border(0.5.dp, Color(0xFF0284C7), RoundedCornerShape(8.dp))
+                                                    .padding(horizontal = 10.dp, vertical = 6.dp)
+                                            ) {
+                                                Row(verticalAlignment = Alignment.CenterVertically) {
+                                                    Icon(
+                                                        imageVector = Icons.Filled.Security,
+                                                        contentDescription = null,
+                                                        tint = Color(0xFF38BDF8),
+                                                        modifier = Modifier.size(14.dp)
+                                                    )
+                                                    Spacer(modifier = Modifier.width(6.dp))
+                                                    Text(
+                                                        text = "Bank transfer / UPI ka valid 12-digit UTR daalein. Duplicate UTR fraud check dwara reject ho jata hai.",
+                                                        fontSize = 9.5.sp,
+                                                        color = Color(0xFFE0F2FE),
+                                                        lineHeight = 13.sp
+                                                    )
+                                                }
+                                            }
+
+                                            // Mandatory UTR Input
+                                            OutlinedTextField(
+                                                value = utrInput,
+                                                onValueChange = {
+                                                    utrInput = it.filter { ch -> ch.isLetterOrDigit() || ch == '-' || ch == '_' }.uppercase()
+                                                    claimErrorMessage = null
+                                                },
+                                                label = { Text("Bank UTR / Transaction Reference *") },
+                                                placeholder = { Text("e.g. 423987123456") },
+                                                singleLine = true,
+                                                modifier = Modifier
+                                                    .fillMaxWidth()
+                                                    .testTag("tenant_utr_input"),
+                                                colors = OutlinedTextFieldDefaults.colors(
+                                                    focusedBorderColor = Color(0xFF38BDF8),
+                                                    unfocusedBorderColor = Color(0xFF475569),
+                                                    focusedTextColor = Color.White,
+                                                    unfocusedTextColor = Color.White,
+                                                    focusedLabelColor = Color(0xFF38BDF8),
+                                                    unfocusedLabelColor = Color(0xFF94A3B8)
+                                                )
+                                            )
+
+                                            // Optional remarks
+                                            OutlinedTextField(
+                                                value = claimNoteInput,
+                                                onValueChange = {
+                                                    claimNoteInput = it
+                                                    claimErrorMessage = null
+                                                },
+                                                label = { Text("Payment App / Remarks (Optional)") },
+                                                placeholder = { Text("e.g. Paid via GPay / PhonePe") },
+                                                singleLine = true,
+                                                modifier = Modifier
+                                                    .fillMaxWidth()
+                                                    .testTag("tenant_claim_paid_note_input"),
+                                                colors = OutlinedTextFieldDefaults.colors(
+                                                    focusedBorderColor = Color(0xFF38BDF8),
+                                                    unfocusedBorderColor = Color(0xFF475569),
+                                                    focusedTextColor = Color.White,
+                                                    unfocusedTextColor = Color.White,
+                                                    focusedLabelColor = Color(0xFF38BDF8),
+                                                    unfocusedLabelColor = Color(0xFF94A3B8)
+                                                )
+                                            )
+                                        }
+
+                                        if (!claimErrorMessage.isNullOrBlank()) {
+                                            Card(
+                                                colors = CardDefaults.cardColors(containerColor = Color(0xFF7F1D1D)),
+                                                shape = RoundedCornerShape(8.dp),
+                                                modifier = Modifier.fillMaxWidth()
+                                            ) {
+                                                Row(
+                                                    modifier = Modifier.padding(8.dp),
+                                                    verticalAlignment = Alignment.CenterVertically
+                                                ) {
+                                                    Icon(
+                                                        imageVector = Icons.Filled.Warning,
+                                                        contentDescription = null,
+                                                        tint = Color(0xFFFCA5A5),
+                                                        modifier = Modifier.size(15.dp)
+                                                    )
+                                                    Spacer(modifier = Modifier.width(6.dp))
+                                                    Text(
+                                                        text = claimErrorMessage ?: "",
+                                                        color = Color.White,
+                                                        fontSize = 11.sp,
+                                                        fontWeight = FontWeight.SemiBold
+                                                    )
+                                                }
+                                            }
+                                        }
 
                                         Button(
                                             onClick = {
-                                                onSubmitClaimPaid(claimNoteInput.trim())
-                                                showClaimPaidSection = false
-                                                Toast.makeText(context, "Payment claim sent to management!", Toast.LENGTH_SHORT).show()
+                                                if (paymentMode == "CASH") {
+                                                    val receiver = cashReceiverInput.trim()
+                                                    if (receiver.length < 2) {
+                                                        claimErrorMessage = "Kripya batayein cash kisko diya (e.g. Office Counter ya Munshi Ji)."
+                                                        return@Button
+                                                    }
+                                                    val note = if (claimNoteInput.isNotBlank()) {
+                                                        "CASH: Given to $receiver | ${claimNoteInput.trim()}"
+                                                    } else {
+                                                        "CASH: Given to $receiver"
+                                                    }
+                                                    onSubmitClaimPaid(note)
+                                                    showClaimPaidSection = false
+                                                    Toast.makeText(context, "Cash payment claim sent to verification queue!", Toast.LENGTH_LONG).show()
+                                                } else {
+                                                    val cleanUtr = utrInput.trim()
+                                                    if (cleanUtr.length < 4) {
+                                                        claimErrorMessage = "Please enter a valid UTR or reference number (minimum 4 characters)."
+                                                        return@Button
+                                                    }
+                                                    val note = if (claimNoteInput.isNotBlank()) {
+                                                        "UTR: $cleanUtr | ${claimNoteInput.trim()}"
+                                                    } else {
+                                                        "UTR: $cleanUtr"
+                                                    }
+                                                    onSubmitClaimPaid(note)
+                                                    showClaimPaidSection = false
+                                                    Toast.makeText(context, "Online payment claim with UTR sent to verification queue!", Toast.LENGTH_LONG).show()
+                                                }
                                             },
                                             modifier = Modifier
                                                 .fillMaxWidth()
                                                 .testTag("submit_claim_paid_btn"),
-                                            colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF10B981)),
+                                            colors = ButtonDefaults.buttonColors(
+                                                containerColor = if (paymentMode == "CASH") Color(0xFF10B981) else Color(0xFF0284C7)
+                                            ),
                                             shape = RoundedCornerShape(8.dp)
                                         ) {
-                                            Text("Press \"I Have Paid\" & Notify Admins", fontWeight = FontWeight.Bold, color = Color.White)
+                                            Icon(
+                                                imageVector = if (paymentMode == "CASH") Icons.Filled.Payments else Icons.Filled.Shield,
+                                                contentDescription = null,
+                                                tint = Color.White,
+                                                modifier = Modifier.size(15.dp)
+                                            )
+                                            Spacer(modifier = Modifier.width(6.dp))
+                                            Text(
+                                                text = if (paymentMode == "CASH") "Submit Cash Payment to Queue" else "Submit UTR to Verification Queue",
+                                                fontWeight = FontWeight.Bold,
+                                                color = Color.White
+                                            )
                                         }
                                     }
                                 }

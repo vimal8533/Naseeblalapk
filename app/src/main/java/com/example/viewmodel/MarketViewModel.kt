@@ -343,6 +343,7 @@ class MarketViewModel(application: Application) : AndroidViewModel(application) 
                 "PENDING" -> rent.isPending
                 "PARTIAL" -> rent.isPartial
                 "PAID" -> rent.isPaid
+                "QUEUE" -> rent.tenantClaimedPaid && !rent.isPaid
                 else -> true
             }
             matchesMonthYear && matchesQuery && matchesFilter
@@ -1790,17 +1791,50 @@ class MarketViewModel(application: Application) : AndroidViewModel(application) 
         }
     }
 
+    /**
+     * Submits a tenant payment claim with mandatory UTR validation.
+     * Checks if the UTR has already been submitted in any active or historical record
+     * to prevent fraudulent double-claiming.
+     *
+     * @param onComplete Callback with (success: Boolean, errorMessage: String?)
+     */
     fun submitTenantClaimPaid(
         rentRecordId: String,
         claimNote: String,
-        onComplete: ((Boolean) -> Unit)? = null
+        onComplete: ((Boolean, String?) -> Unit)? = null
     ) {
         viewModelScope.launch {
-            val record = rents.value.find { it.id == rentRecordId } ?: return@launch
+            val record = rents.value.find { it.id == rentRecordId } ?: run {
+                onComplete?.invoke(false, "Rent record not found.")
+                return@launch
+            }
+
+            // Check duplicate UTR only for online payments (starting with UTR:)
+            val cleanNote = claimNote.trim()
+            if (cleanNote.startsWith("UTR:", ignoreCase = true)) {
+                val utrVal = cleanNote.substringAfter("UTR:").substringBefore("|").trim().uppercase()
+                if (utrVal.length >= 4) {
+                    val duplicateRent = rawRents.value.firstOrNull { other ->
+                        if (other.id == rentRecordId) return@firstOrNull false
+                        val otherNote = other.tenantClaimedNote.trim()
+                        if (otherNote.startsWith("UTR:", ignoreCase = true)) {
+                            val otherUtr = otherNote.substringAfter("UTR:").substringBefore("|").trim().uppercase()
+                            otherUtr.isNotEmpty() && otherUtr == utrVal
+                        } else false
+                    }
+
+                    if (duplicateRent != null) {
+                        val errorMsg = "Duplicate UTR detected! Bank UTR ($utrVal) was already submitted for ${duplicateRent.tenantName} (${duplicateRent.shopNumber}) for ${duplicateRent.month} ${duplicateRent.year}."
+                        onComplete?.invoke(false, errorMsg)
+                        return@launch
+                    }
+                }
+            }
+
             val now = System.currentTimeMillis()
             val updatedRecord = record.copy(
                 tenantClaimedPaid = true,
-                tenantClaimedNote = claimNote.trim(),
+                tenantClaimedNote = cleanNote,
                 tenantClaimedAt = now,
                 updatedAt = now
             )
@@ -1825,7 +1859,7 @@ class MarketViewModel(application: Application) : AndroidViewModel(application) 
                 isFullPaid = record.isPaid
             )).copy(
                 claimedPaid = true,
-                claimedPaidNote = claimNote.trim(),
+                claimedPaidNote = cleanNote,
                 claimedPaidAt = now,
                 lastUpdated = now
             )
@@ -1840,12 +1874,12 @@ class MarketViewModel(application: Application) : AndroidViewModel(application) 
                     userRole = "TENANT_ECHO",
                     actionType = "TENANT_CLAIM_PAID",
                     title = "Payment Claimed: ${record.tenantName} (${record.shopNumber})",
-                    details = "Tenant reported payment completed for ${record.month} ${record.year}. Ref/Note: ${claimNote.ifBlank { "Awaiting admin confirmation" }}",
+                    details = "Tenant reported payment completed for ${record.month} ${record.year}. Ref/Note: ${cleanNote.ifBlank { "Awaiting admin confirmation" }}",
                     tenantId = record.tenantId,
                     shopId = record.shopId
                 )
             )
-            onComplete?.invoke(true)
+            onComplete?.invoke(true, null)
         }
     }
 

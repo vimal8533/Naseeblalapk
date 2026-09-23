@@ -8,12 +8,51 @@ import com.example.model.RentRecord
 
 object ShareUtils {
 
+    fun generateTenantEchoPortalUrl(rent: RentRecord): String {
+        val echoSlug = "${rent.tenantId}_${rent.month}_${rent.year}".replace(" ", "_")
+        return "https://naseeblalmarket.web.app/portal?echo=$echoSlug"
+    }
+
     /**
-     * Sends a polite and clear WhatsApp rent payment reminder to the tenant.
-     * Targets tenant's phone number directly if available, otherwise opens chooser.
+     * Checks if a tenant's promised payment date is active (today or in future).
+     * If date has already passed, returns false (overdue).
      */
-    fun sendWhatsAppReminder(context: Context, rent: RentRecord, tenantPhone: String? = null) {
-        val reminderText = buildString {
+    fun isPromiseDateActive(dateStr: String): Boolean {
+        if (dateStr.isBlank()) return false
+        val clean = dateStr.trim()
+        val formats = listOf(
+            "dd MMM yyyy",
+            "d MMM yyyy",
+            "dd MMMM yyyy",
+            "d MMMM yyyy",
+            "dd/MM/yyyy",
+            "d/M/yyyy",
+            "dd-MM-yyyy",
+            "d-M-yyyy",
+            "yyyy-MM-dd"
+        )
+        val todayCal = java.util.Calendar.getInstance().apply {
+            set(java.util.Calendar.HOUR_OF_DAY, 0)
+            set(java.util.Calendar.MINUTE, 0)
+            set(java.util.Calendar.SECOND, 0)
+            set(java.util.Calendar.MILLISECOND, 0)
+        }
+
+        for (fmt in formats) {
+            try {
+                val sdf = java.text.SimpleDateFormat(fmt, java.util.Locale.ENGLISH)
+                sdf.isLenient = false
+                val parsed = sdf.parse(clean)
+                if (parsed != null) {
+                    return parsed.time >= todayCal.timeInMillis
+                }
+            } catch (_: Exception) {}
+        }
+        return true
+    }
+
+    fun formatRentReminderMessage(rent: RentRecord): String {
+        return buildString {
             if (rent.isPersonal) {
                 appendLine("🏠 *RESIDENTIAL / FLAT MANAGEMENT*")
                 appendLine("📢 *RENT & BILL PAYMENT REMINDER*")
@@ -38,16 +77,21 @@ object ShareUtils {
                 if (rent.dueDate.isNotBlank()) {
                     appendLine("⏰ *Due Date:* ${rent.dueDate}")
                 }
+                if (rent.promisedDate.isNotBlank() && !isPromiseDateActive(rent.promisedDate)) {
+                    appendLine("⚠️ *Promise Passed:* Aapne ${rent.promisedDate} tak bhugtan ka vada kiya tha jo beet chuka hai.")
+                }
                 appendLine("━━━━━━━━━━━━━━━━━━")
-                val echoSlug = "${rent.tenantId}_${rent.month}_${rent.year}".replace(" ", "_")
-                val portalLink = "https://naseeblalmarket.web.app/portal?echo=$echoSlug"
+                val portalLink = generateTenantEchoPortalUrl(rent)
                 appendLine("🔗 *Your Private Portal & Payment Status Link:*")
                 appendLine(portalLink)
                 appendLine("*(Click link to set promise payment date or view receipt after full payment)*")
                 appendLine("━━━━━━━━━━━━━━━━━━")
                 appendLine("Kindly clear the pending balance at your earliest convenience.")
-                appendLine("⚠️ *Important:* No online payment gateway. Please contact authorized management for payment.")
-                appendLine("If already paid, click 'I Have Paid' on the link or contact us.")
+                appendLine("⚠️ *Important Notice (Anti-Fraud Policy):*")
+                appendLine("• Koi bhi online payment gateway ya automatic payment link nahi diya gaya hai.")
+                appendLine("• Payment direct authorized Management se contact karke hi jama karein.")
+                appendLine("• Online transfer kiya ho to Portal link par jakar apna UTR/Ref No. enter karein taaki fraud-check verify ho sake.")
+                appendLine("If already paid, click 'I Have Paid' on the link and enter your UTR number.")
                 appendLine()
                 appendLine("📍 *Residential Management*")
             } else {
@@ -74,20 +118,33 @@ object ShareUtils {
                 if (rent.dueDate.isNotBlank()) {
                     appendLine("⏰ *Due Date:* ${rent.dueDate}")
                 }
+                if (rent.promisedDate.isNotBlank() && !isPromiseDateActive(rent.promisedDate)) {
+                    appendLine("⚠️ *Promise Passed:* Aapne ${rent.promisedDate} tak bhugtan ka vada kiya tha jo beet chuka hai.")
+                }
                 appendLine("━━━━━━━━━━━━━━━━━━")
-                val echoSlug = "${rent.tenantId}_${rent.month}_${rent.year}".replace(" ", "_")
-                val portalLink = "https://naseeblalmarket.web.app/portal?echo=$echoSlug"
+                val portalLink = generateTenantEchoPortalUrl(rent)
                 appendLine("🔗 *Your Unique Shop Portal Link:*")
                 appendLine(portalLink)
                 appendLine("*(Click link to set promise payment date or view receipt after full payment)*")
                 appendLine("━━━━━━━━━━━━━━━━━━")
                 appendLine("Kindly clear the pending balance at your earliest convenience.")
-                appendLine("⚠️ *Important:* No online payment. Payment must be made directly to authorized market management.")
-                appendLine("If already paid, click 'I Have Paid' on the link. Thank you!")
+                appendLine("⚠️ *Important Notice (Anti-Fraud Policy):*")
+                appendLine("• Kisi bhi payment link ya UPI ID par payment na karein.")
+                appendLine("• Payment direct authorized Market Management se contact karke hi karein.")
+                appendLine("• Bhugtan ke baad portal link par 'I Have Paid' dabayein aur valid UTR/Ref No. dalein.")
+                appendLine("Management UTR verify karke hi final digital receipt unlock karegi.")
                 appendLine()
                 appendLine("📍 *Naseeb Lal Market Management*")
             }
         }
+    }
+
+    /**
+     * Sends a polite and clear WhatsApp rent payment reminder to the tenant.
+     * Targets tenant's phone number directly if available, otherwise opens chooser.
+     */
+    fun sendWhatsAppReminder(context: Context, rent: RentRecord, tenantPhone: String? = null) {
+        val reminderText = formatRentReminderMessage(rent)
 
         val cleanPhone = tenantPhone?.filter { it.isDigit() }?.let { raw ->
             when {
@@ -193,6 +250,108 @@ object ShareUtils {
         }
 
         openGenericShare(context, receiptText, "Share Rent Receipt via WhatsApp / SMS")
+    }
+
+    fun sendWhatsAppReceipt(context: Context, rent: RentRecord, tenantPhone: String? = null) {
+        val statusEmoji = when {
+            rent.isPaid -> "✅ PAID"
+            rent.isPartial -> "⚠️ PARTIALLY PAID"
+            else -> "⏳ PENDING"
+        }
+
+        val receiptText = buildString {
+            if (rent.isPersonal) {
+                appendLine("🏠 *RESIDENTIAL FLAT RECEIPT*")
+                appendLine("📋 *Official Rent & Utility Receipt*")
+                appendLine("━━━━━━━━━━━━━━━━━━")
+                appendLine("🏠 *Flat / Unit No:* ${rent.shopNumber}")
+                appendLine("👤 *Tenant:* ${rent.tenantName}")
+                appendLine("📅 *Month:* ${rent.month} ${rent.year}")
+                appendLine("━━━━━━━━━━━━━━━━━━")
+                val flatBaseRent = (rent.amountDue - rent.electricityBill).coerceAtLeast(0.0)
+                if (rent.electricityBill > 0) {
+                    appendLine("🏠 *Flat Rent:* ₹${formatAmount(flatBaseRent)}")
+                    appendLine("⚡ *Electricity Bill:* ₹${formatAmount(rent.electricityBill)}")
+                }
+                appendLine("💰 *Total Due:* ₹${formatAmount(rent.amountDue)}")
+                appendLine("💵 *Amount Paid:* ₹${formatAmount(rent.amountPaid)}")
+                appendLine("⏳ *Pending Balance:* ₹${formatAmount(rent.pendingAmount)}")
+                appendLine("━━━━━━━━━━━━━━━━━━")
+                appendLine("📌 *Status:* $statusEmoji")
+                if (rent.paidDate.isNotBlank()) {
+                    appendLine("📅 *Payment Date:* ${rent.paidDate}")
+                    appendLine("💳 *Mode:* ${rent.paymentMode}")
+                }
+                if (rent.receiptNumber.isNotBlank()) {
+                    appendLine("🧾 *Receipt #:* ${rent.receiptNumber}")
+                }
+                if (rent.collectedBy.isNotBlank()) {
+                    appendLine("👤 *Collected By:* ${rent.collectedBy}")
+                }
+                if (rent.notes.isNotBlank()) {
+                    appendLine("📝 *Note:* ${rent.notes}")
+                }
+                appendLine("━━━━━━━━━━━━━━━━━━")
+                appendLine("Thank you for your payment.")
+            } else {
+                val baseRent = (rent.amountDue - rent.pmcTax).coerceAtLeast(0.0)
+                appendLine("🏪 *NASEEB LAL MARKET*")
+                appendLine("📋 *Official Rent Receipt*")
+                appendLine("━━━━━━━━━━━━━━━━━━")
+                appendLine("🏠 *Shop No:* ${rent.shopNumber}")
+                appendLine("👤 *Tenant:* ${rent.tenantName}")
+                appendLine("📅 *Month:* ${rent.month} ${rent.year}")
+                appendLine("━━━━━━━━━━━━━━━━━━")
+                if (rent.pmcTax > 0) {
+                    appendLine("🏠 *Base Rent:* ₹${formatAmount(baseRent)}")
+                    appendLine("🏷️ *PMC Municipal Tax (1+ Year):* ₹${formatAmount(rent.pmcTax)}")
+                }
+                appendLine("💰 *Total Rent Due:* ₹${formatAmount(rent.amountDue)}")
+                appendLine("💵 *Amount Paid:* ₹${formatAmount(rent.amountPaid)}")
+                appendLine("⏳ *Pending Balance:* ₹${formatAmount(rent.pendingAmount)}")
+                appendLine("━━━━━━━━━━━━━━━━━━")
+                appendLine("📌 *Status:* $statusEmoji")
+                if (rent.paidDate.isNotBlank()) {
+                    appendLine("📅 *Payment Date:* ${rent.paidDate}")
+                    appendLine("💳 *Mode:* ${rent.paymentMode}")
+                }
+                if (rent.receiptNumber.isNotBlank()) {
+                    appendLine("🧾 *Receipt #:* ${rent.receiptNumber}")
+                }
+                if (rent.collectedBy.isNotBlank()) {
+                    appendLine("👤 *Collected By:* ${rent.collectedBy}")
+                }
+                if (rent.notes.isNotBlank()) {
+                    appendLine("📝 *Note:* ${rent.notes}")
+                }
+                appendLine("━━━━━━━━━━━━━━━━━━")
+                appendLine("Thank you for your business.")
+                appendLine("📍 *Naseeb Lal Market Management*")
+            }
+        }
+
+        val cleanPhone = tenantPhone?.filter { it.isDigit() }?.let { raw ->
+            when {
+                raw.length == 10 -> "91$raw"
+                raw.startsWith("0") && raw.length == 11 -> "91${raw.substring(1)}"
+                raw.startsWith("91") && raw.length == 12 -> raw
+                else -> raw
+            }
+        }
+
+        try {
+            if (!cleanPhone.isNullOrBlank()) {
+                val url = "https://api.whatsapp.com/send?phone=$cleanPhone&text=${Uri.encode(receiptText)}"
+                val waIntent = Intent(Intent.ACTION_VIEW, Uri.parse(url)).apply {
+                    addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                }
+                context.startActivity(waIntent)
+            } else {
+                openGenericShare(context, receiptText, "Share Rent Receipt via WhatsApp")
+            }
+        } catch (e: Exception) {
+            openGenericShare(context, receiptText, "Share Rent Receipt via WhatsApp")
+        }
     }
 
     private fun openGenericShare(context: Context, text: String, title: String) {
