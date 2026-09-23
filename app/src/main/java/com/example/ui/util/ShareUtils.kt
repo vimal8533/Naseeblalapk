@@ -82,9 +82,21 @@ object ShareUtils {
                 }
                 appendLine("━━━━━━━━━━━━━━━━━━")
                 val portalLink = generateTenantEchoPortalUrl(rent)
-                appendLine("🔗 *Your Private Portal & Payment Status Link:*")
-                appendLine(portalLink)
-                appendLine("*(Click link to set promise payment date or view receipt after full payment)*")
+                val appDeepLink = "naseeblalmarket://portal?echo=${rent.tenantId}_${rent.month}_${rent.year}".replace(" ", "_")
+                val encodedUnit = safeUrlEncode(if (rent.isPersonal) "Flat ${rent.shopNumber}" else "Shop ${rent.shopNumber}")
+                val encodedMonth = safeUrlEncode("${rent.month} ${rent.year}")
+                val encodedBal = safeUrlEncode("Rs. ${formatAmount(rent.pendingAmount)}")
+
+                appendLine("🔗 *Tenant Self-Service Portal:*")
+                appendLine("👉 $portalLink")
+                appendLine("*(App me direct kholne ke liye upar link tap karein)*")
+                appendLine()
+                appendLine("⚡ *Instant 1-Click WhatsApp Reply:*")
+                appendLine("📅 *Vada / Promise Date dene ke liye tap karein:*")
+                appendLine("👉 https://wa.me/?text=Namaste+Management,+I+promise+to+pay+rent+for+$encodedUnit+($encodedMonth)+by+Date:_________+Note:_________")
+                appendLine()
+                appendLine("💳 *Payment jama karne / UTR bhejne ke liye tap karein:*")
+                appendLine("👉 https://wa.me/?text=Namaste+Management,+I+have+paid+rent+for+$encodedUnit+($encodedMonth).+Amount:+$encodedBal.+Mode:+[Cash/Online].+Ref/UTR+No:_________")
                 appendLine("━━━━━━━━━━━━━━━━━━")
                 appendLine("Kindly clear the pending balance at your earliest convenience.")
                 appendLine("⚠️ *Important Notice (Anti-Fraud Policy):*")
@@ -123,9 +135,21 @@ object ShareUtils {
                 }
                 appendLine("━━━━━━━━━━━━━━━━━━")
                 val portalLink = generateTenantEchoPortalUrl(rent)
-                appendLine("🔗 *Your Unique Shop Portal Link:*")
-                appendLine(portalLink)
-                appendLine("*(Click link to set promise payment date or view receipt after full payment)*")
+                val appDeepLink = "naseeblalmarket://portal?echo=${rent.tenantId}_${rent.month}_${rent.year}".replace(" ", "_")
+                val encodedUnit = safeUrlEncode("Shop ${rent.shopNumber}")
+                val encodedMonth = safeUrlEncode("${rent.month} ${rent.year}")
+                val encodedBal = safeUrlEncode("Rs. ${formatAmount(rent.pendingAmount)}")
+
+                appendLine("🔗 *Tenant Self-Service Portal:*")
+                appendLine("👉 $portalLink")
+                appendLine("*(App me direct kholne ke liye upar link tap karein)*")
+                appendLine()
+                appendLine("⚡ *Instant 1-Click WhatsApp Reply:*")
+                appendLine("📅 *Vada / Promise Date dene ke liye tap karein:*")
+                appendLine("👉 https://wa.me/?text=Namaste+Market+Management,+I+promise+to+pay+rent+for+$encodedUnit+($encodedMonth)+by+Date:_________+Note:_________")
+                appendLine()
+                appendLine("💳 *Payment jama karne / UTR bhejne ke liye tap karein:*")
+                appendLine("👉 https://wa.me/?text=Namaste+Market+Management,+I+have+paid+rent+for+$encodedUnit+($encodedMonth).+Amount:+$encodedBal.+Payment+Mode:+[Cash/Online].+Ref/UTR+No:_________")
                 appendLine("━━━━━━━━━━━━━━━━━━")
                 appendLine("Kindly clear the pending balance at your earliest convenience.")
                 appendLine("⚠️ *Important Notice (Anti-Fraud Policy):*")
@@ -372,6 +396,14 @@ object ShareUtils {
             String.format("%,d", amount.toLong())
         } else {
             String.format("%,.2f", amount)
+        }
+    }
+
+    private fun safeUrlEncode(value: String): String {
+        return try {
+            java.net.URLEncoder.encode(value, "UTF-8")
+        } catch (_: Exception) {
+            value.replace(" ", "+")
         }
     }
 }

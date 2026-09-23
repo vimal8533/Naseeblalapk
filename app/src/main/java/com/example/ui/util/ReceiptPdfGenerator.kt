@@ -3,6 +3,7 @@ package com.example.ui.util
 import android.content.ContentValues
 import android.content.Context
 import android.content.Intent
+import android.graphics.Bitmap
 import android.graphics.Canvas
 import android.graphics.Color
 import android.graphics.Paint
@@ -16,6 +17,10 @@ import android.provider.MediaStore
 import android.widget.Toast
 import androidx.core.content.FileProvider
 import com.example.model.RentRecord
+import com.google.zxing.BarcodeFormat
+import com.google.zxing.EncodeHintType
+import com.google.zxing.qrcode.QRCodeWriter
+import com.google.zxing.qrcode.decoder.ErrorCorrectionLevel
 import java.io.File
 import java.io.FileOutputStream
 import java.io.OutputStream
@@ -366,8 +371,8 @@ object ReceiptPdfGenerator {
         }
 
         // Anti-Fraud Digital Verification QR Code Stamp (Tamper-Proof Ledger Record Verification)
-        val qrBoxY = (height - 180f).coerceAtLeast(rowY + 65f)
-        val qrBoxHeight = 68f
+        val qrBoxY = (height - 185f).coerceAtLeast(rowY + 65f)
+        val qrBoxHeight = 72f
         val qrRect = RectF(boxMargin, qrBoxY, boxMargin + boxWidth, qrBoxY + qrBoxHeight)
         paint.color = Color.parseColor("#F8FAFC")
         canvas.drawRoundRect(qrRect, 8f, 8f, paint)
@@ -377,55 +382,62 @@ object ReceiptPdfGenerator {
         canvas.drawRoundRect(qrRect, 8f, 8f, paint)
         paint.style = Paint.Style.FILL
 
-        // Draw stylized Verification QR visual pattern (Left inside QR box)
-        val qrSize = 50f
-        val qrLeft = boxMargin + 12f
-        val qrTop = qrBoxY + 9f
-        paint.color = Color.WHITE
-        canvas.drawRect(qrLeft, qrTop, qrLeft + qrSize, qrTop + qrSize, paint)
-        paint.style = Paint.Style.STROKE
-        paint.color = Color.parseColor("#0F1E3D")
-        paint.strokeWidth = 1.2f
-        canvas.drawRect(qrLeft, qrTop, qrLeft + qrSize, qrTop + qrSize, paint)
+        // Draw Real Scannable ZXing Verification QR Code (Left inside QR box)
+        val qrSize = 58f
+        val qrLeft = boxMargin + 10f
+        val qrTop = qrBoxY + 7f
 
-        // Corner locator squares
-        paint.style = Paint.Style.STROKE
-        paint.strokeWidth = 2.5f
-        canvas.drawRect(qrLeft + 4f, qrTop + 4f, qrLeft + 16f, qrTop + 16f, paint)
-        canvas.drawRect(qrLeft + qrSize - 16f, qrTop + 4f, qrLeft + qrSize - 4f, qrTop + 16f, paint)
-        canvas.drawRect(qrLeft + 4f, qrTop + qrSize - 16f, qrLeft + 16f, qrTop + qrSize - 4f, paint)
+        val qrPayload = buildString {
+            appendLine("NASEEB LAL MARKET - OFFICIAL RECEIPT")
+            appendLine("---------------------------------")
+            appendLine("Receipt No: ${rent.receiptNumber.ifBlank { "NLM-${rent.year}" }}")
+            appendLine("Tenant: ${rent.tenantName}")
+            appendLine("Unit: ${if (rent.isPersonal) "Flat" else "Shop"} ${rent.shopNumber}")
+            appendLine("Period: ${rent.month} ${rent.year}")
+            appendLine("Total Due: Rs. ${formatAmount(rent.amountDue)}")
+            appendLine("Paid: Rs. ${formatAmount(rent.amountPaid)}")
+            appendLine("Balance: Rs. ${formatAmount(rent.pendingAmount)}")
+            appendLine("Status: ${rent.status}")
+            if (rent.paymentMode.isNotBlank()) {
+                appendLine("Mode: ${rent.paymentMode}")
+            }
+            if (rent.paidDate.isNotBlank()) {
+                appendLine("Date: ${rent.paidDate}")
+            }
+            if (rent.tenantClaimedNote.isNotBlank()) {
+                appendLine("Ref: ${rent.tenantClaimedNote}")
+            }
+            appendLine("Verification: AUTHENTIC RECORD")
+        }
 
-        paint.style = Paint.Style.FILL
-        canvas.drawRect(qrLeft + 7f, qrTop + 7f, qrLeft + 13f, qrTop + 13f, paint)
-        canvas.drawRect(qrLeft + qrSize - 13f, qrTop + 7f, qrLeft + qrSize - 7f, qrTop + 13f, paint)
-        canvas.drawRect(qrLeft + 7f, qrTop + qrSize - 13f, qrLeft + 13f, qrTop + qrSize - 7f, paint)
-
-        // Center sync checkmark
-        paint.color = Color.parseColor("#10B981")
-        canvas.drawCircle(qrLeft + qrSize / 2f, qrTop + qrSize / 2f, 4f, paint)
+        val qrBitmap = generateQrBitmap(qrPayload, 200)
+        if (qrBitmap != null) {
+            val destRect = RectF(qrLeft, qrTop, qrLeft + qrSize, qrTop + qrSize)
+            canvas.drawBitmap(qrBitmap, null, destRect, null)
+        }
 
         // QR Information & Anti-Fraud Explanation (Verification only - NOT for payment)
         paint.textAlign = Paint.Align.LEFT
         paint.color = navyPrimary
-        paint.textSize = 10.5f
+        paint.textSize = 10f
         paint.typeface = Typeface.create(Typeface.DEFAULT, Typeface.BOLD)
-        canvas.drawText("🛡️ OFFICIAL DIGITAL RECORD VERIFICATION QR", boxMargin + 72f, qrBoxY + 20f, paint)
+        canvas.drawText("🛡️ OFFICIAL DIGITAL RECORD VERIFICATION QR", boxMargin + 76f, qrBoxY + 19f, paint)
 
         paint.color = textMuted
         paint.textSize = 8.5f
         paint.typeface = Typeface.create(Typeface.DEFAULT, Typeface.NORMAL)
-        val verifyText1 = "This QR is for record verification only (NOT for payment). Scan to authenticate authenticity."
-        canvas.drawText(verifyText1, boxMargin + 72f, qrBoxY + 34f, paint)
+        val verifyText1 = "Scan with any phone camera or Google Lens to view verified receipt details."
+        canvas.drawText(verifyText1, boxMargin + 76f, qrBoxY + 33f, paint)
 
         val utrNote = if (rent.tenantClaimedNote.isNotBlank()) " | UTR: ${rent.tenantClaimedNote.take(18)}" else ""
-        val verifyText2 = "Auth Hash: NLM-${rent.shopNumber.filter { it.isLetterOrDigit() }}-${rent.month.take(3)}-${rent.year}${utrNote} • Cloud Master Ledger Verified"
+        val verifyText2 = "Auth Hash: NLM-${rent.shopNumber.filter { it.isLetterOrDigit() }}-${rent.month.take(3)}-${rent.year}${utrNote} • Ledger Verified"
         paint.color = Color.parseColor("#0369A1")
-        canvas.drawText(verifyText2, boxMargin + 72f, qrBoxY + 48f, paint)
+        canvas.drawText(verifyText2, boxMargin + 76f, qrBoxY + 47f, paint)
 
         paint.color = Color.parseColor("#D97706")
-        paint.textSize = 8f
+        paint.textSize = 7.5f
         paint.typeface = Typeface.create(Typeface.DEFAULT, Typeface.BOLD)
-        canvas.drawText("⚠️ DO NOT SCAN FOR PAYMENT • PAYMENTS ARE DIRECTLY MANAGED ONLY", boxMargin + 72f, qrBoxY + 60f, paint)
+        canvas.drawText("⚠️ RECORD VERIFICATION ONLY • PAYMENTS ARE MANAGED DIRECTLY", boxMargin + 76f, qrBoxY + 60f, paint)
 
         // 7. Signatures & Footer
         val footerY = height - 100f
@@ -497,6 +509,34 @@ object ReceiptPdfGenerator {
             String.format("%,d", amount.toLong())
         } else {
             String.format("%,.2f", amount)
+        }
+    }
+
+    /**
+     * Generates a real 2D QR Code Bitmap using ZXing.
+     * Can be scanned by any smartphone camera or QR scanner.
+     */
+    private fun generateQrBitmap(content: String, sizePx: Int): Bitmap? {
+        return try {
+            val hints = mapOf(
+                EncodeHintType.CHARACTER_SET to "UTF-8",
+                EncodeHintType.ERROR_CORRECTION to ErrorCorrectionLevel.M,
+                EncodeHintType.MARGIN to 1
+            )
+            val bitMatrix = QRCodeWriter().encode(content, BarcodeFormat.QR_CODE, sizePx, sizePx, hints)
+            val bitmap = Bitmap.createBitmap(sizePx, sizePx, Bitmap.Config.RGB_565)
+            for (x in 0 until sizePx) {
+                for (y in 0 until sizePx) {
+                    bitmap.setPixel(
+                        x,
+                        y,
+                        if (bitMatrix.get(x, y)) Color.BLACK else Color.WHITE
+                    )
+                }
+            }
+            bitmap
+        } catch (e: Exception) {
+            null
         }
     }
 }

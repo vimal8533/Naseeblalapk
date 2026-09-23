@@ -37,6 +37,7 @@ import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
+import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.Text
@@ -73,6 +74,7 @@ import com.example.ui.theme.StatusPending
 @Composable
 fun LoginScreen(
     onLogin: (String, String, UserRole) -> Result<UserSession>,
+    onOpenTenantPortal: (() -> Unit)? = null,
     modifier: Modifier = Modifier
 ) {
     var selectedRole by remember { mutableStateOf(UserRole.ADMIN) }
@@ -433,6 +435,27 @@ fun LoginScreen(
                             )
                         }
                     }
+                }
+            }
+
+            if (onOpenTenantPortal != null) {
+                Spacer(modifier = Modifier.height(18.dp))
+                OutlinedButton(
+                    onClick = onOpenTenantPortal,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(48.dp),
+                    shape = RoundedCornerShape(14.dp),
+                    border = androidx.compose.foundation.BorderStroke(1.dp, GoldAccent.copy(alpha = 0.5f)),
+                    colors = ButtonDefaults.outlinedButtonColors(
+                        contentColor = GoldAccent
+                    )
+                ) {
+                    Text(
+                        text = "🌐 Kirayedaar Portal / Tenant Self-Service",
+                        fontWeight = FontWeight.SemiBold,
+                        fontSize = 13.5.sp
+                    )
                 }
             }
 
