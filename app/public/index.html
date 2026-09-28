@@ -514,19 +514,152 @@
       opacity: 1;
     }
 
+    /* Official Receipt Section */
+    .receipt-card {
+      background: #FFFFFF;
+      border: 2px solid #10B981;
+      border-radius: 18px;
+      padding: 20px 16px;
+      box-shadow: 0 8px 30px rgba(16, 185, 129, 0.12);
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
+      position: relative;
+    }
+
+    .receipt-header {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+
+    .receipt-icon {
+      width: 48px;
+      height: 48px;
+      border-radius: 12px;
+      background: #D1FAE5;
+      color: #059669;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 1.5rem;
+      flex-shrink: 0;
+    }
+
+    .receipt-slip {
+      background: #F8FAFC;
+      border: 1.5px dashed #94A3B8;
+      border-radius: 14px;
+      padding: 16px;
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+    }
+
+    .slip-title {
+      font-size: 0.95rem;
+      font-weight: 800;
+      color: #0F172A;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      border-bottom: 1px solid #E2E8F0;
+      padding-bottom: 8px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    .slip-row {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      font-size: 0.88rem;
+    }
+
+    .slip-row span {
+      color: #64748B;
+    }
+
+    .slip-row strong {
+      color: #0F172A;
+      font-weight: 700;
+      text-align: right;
+    }
+
+    .slip-total {
+      background: #ECFDF5;
+      border: 1.5px solid #A7F3D0;
+      border-radius: 10px;
+      padding: 12px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-top: 4px;
+    }
+
+    .slip-total-label {
+      font-size: 0.92rem;
+      font-weight: 700;
+      color: #065F46;
+    }
+
+    .slip-total-val {
+      font-size: 1.35rem;
+      font-weight: 800;
+      color: #047857;
+    }
+
+    .slip-stamp {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      background: #D1FAE5;
+      color: #047857;
+      border: 1.5px solid #10B981;
+      border-radius: 20px;
+      padding: 4px 12px;
+      font-size: 0.78rem;
+      font-weight: 800;
+      text-transform: uppercase;
+      align-self: center;
+      margin-top: 6px;
+    }
+
+    .btn-download-receipt {
+      background: linear-gradient(135deg, #059669 0%, #10B981 100%);
+      color: #FFFFFF;
+      box-shadow: 0 4px 14px rgba(16, 185, 129, 0.35);
+    }
+
     @media print {
       body {
         background: #FFF !important;
         color: #000 !important;
+        padding: 0 !important;
       }
-      .action-container, .fraud-alert, .quick-contacts, .search-box {
+      .action-card, .fraud-alert, .quick-contacts, .search-box, .btn-download-receipt, .btn-contact, .header-card .brand-contact, #promiseCard, #paymentClaimCard, #toast, .amount-due-highlight {
         display: none !important;
       }
-      .header-card, .bill-card {
-        border: 1px solid #CCC !important;
+      .main-container {
+        max-width: 100% !important;
+        width: 100% !important;
+      }
+      .header-card {
+        border: none !important;
+        border-top: none !important;
+        box-shadow: none !important;
+        padding: 8px 0 !important;
+      }
+      .receipt-card {
+        border: 2px solid #000 !important;
         box-shadow: none !important;
         background: #FFF !important;
-        color: #000 !important;
+        page-break-inside: avoid;
+        display: block !important;
+      }
+      .receipt-slip {
+        border: 1px dashed #000 !important;
+        background: #FFF !important;
       }
     }
   </style>
@@ -633,8 +766,70 @@
     <!-- Tenant Action Section -->
     <div id="actionSection" class="action-container" style="display: none;">
 
+      <!-- Official Digital Receipt Card (Shown when status is PAID or Payment Verified) -->
+      <div id="receiptSection" class="receipt-card" style="display: none;">
+        <div class="receipt-header">
+          <div class="receipt-icon">🧾</div>
+          <div>
+            <div style="font-size: 1.15rem; font-weight: 800; color: #047857;">Bhugtan Safal & Verified! 🎉</div>
+            <div style="font-size: 0.82rem; color: #065F46; margin-top: 2px;">Naseeb Lal Market Management dwara payment verify ho chuka hai.</div>
+          </div>
+        </div>
+
+        <div class="receipt-slip">
+          <div class="slip-title">
+            <span>Official Rent Receipt</span>
+            <span id="recNumber" style="font-size: 0.78rem; color: #047857; font-weight: 700;">NLM-REC-2026</span>
+          </div>
+
+          <div class="slip-row">
+            <span>Dukaan / Flat No.:</span>
+            <strong id="recUnit">Shop No. --</strong>
+          </div>
+          <div class="slip-row">
+            <span>Kirayedaar Ka Naam:</span>
+            <strong id="recTenantName">--</strong>
+          </div>
+          <div class="slip-row">
+            <span>Billing Mahina / Avadhi:</span>
+            <strong id="recPeriod">--</strong>
+          </div>
+          <div class="slip-row">
+            <span>Bhugtan Tarikh (Paid Date):</span>
+            <strong id="recPaidDate">--</strong>
+          </div>
+          <div class="slip-row">
+            <span>Bhugtan Madhyam (Mode):</span>
+            <strong id="recMode">Cash / Online</strong>
+          </div>
+          <div class="slip-row" id="rowRecUtr" style="display: none;">
+            <span>Transaction Ref / UTR:</span>
+            <strong id="recUtr">--</strong>
+          </div>
+
+          <div class="slip-total">
+            <div class="slip-total-label">Kul Rashi Jama (Amount Paid):</div>
+            <div id="recAmountPaid" class="slip-total-val">₹0</div>
+          </div>
+
+          <div class="slip-stamp">
+            <span>✓</span> OFFICIAL VERIFIED PAYMENT RECEIPT
+          </div>
+        </div>
+
+        <!-- Download & WhatsApp Share Buttons -->
+        <div style="display: flex; flex-direction: column; gap: 8px;">
+          <button type="button" onclick="printReceipt()" class="btn-submit btn-download-receipt">
+            <span>📥</span> Download / Print Official Receipt (PDF)
+          </button>
+          <a id="btnShareWaReceipt" href="#" target="_blank" class="btn-contact btn-whatsapp" style="text-align: center;">
+            <span>💬</span> Receipt WhatsApp Par Share / Save Karein
+          </a>
+        </div>
+      </div>
+
       <!-- Action 1: Vada Karein / Promise Date -->
-      <div class="action-card">
+      <div id="promiseCard" class="action-card">
         <div class="action-header">
           <div class="action-icon icon-blue">📅</div>
           <div>
@@ -659,7 +854,7 @@
       </div>
 
       <!-- Action 2: I Have Paid / Bhugtan Jama Kiya Hai -->
-      <div class="action-card">
+      <div id="paymentClaimCard" class="action-card">
         <div class="action-header">
           <div class="action-icon icon-green">💳</div>
           <div>
@@ -879,13 +1074,19 @@
       statusBadge.innerText = st;
       statusBadge.className = 'status-badge ' + (st === 'PAID' ? 'status-paid' : st === 'PARTIAL' ? 'status-partial' : 'status-pending');
 
-      document.getElementById('dispPendingAmount').innerText = formatCurrency(rent.pendingAmount);
-      document.getElementById('dispTotalDue').innerText = formatCurrency(rent.amountDue);
-      document.getElementById('dispAmountPaid').innerText = formatCurrency(rent.amountPaid);
+      const amountDue = Number(rent.amountDue) || 0;
+      const amountPaid = Number(rent.amountPaid) || 0;
+      const pendingVal = (rent.pendingAmount !== undefined && rent.pendingAmount !== null)
+        ? Number(rent.pendingAmount)
+        : Math.max(0, amountDue - amountPaid);
 
-      const periodLabel = (rent.month.toLowerCase().includes('yearly') || rent.month.toLowerCase().includes('varshik'))
-        ? 'Varshik (Yearly) ' + rent.year
-        : `${rent.month} ${rent.year}`;
+      document.getElementById('dispPendingAmount').innerText = formatCurrency(pendingVal);
+      document.getElementById('dispTotalDue').innerText = formatCurrency(amountDue);
+      document.getElementById('dispAmountPaid').innerText = formatCurrency(amountPaid);
+
+      const periodLabel = (rent.month && (rent.month.toLowerCase().includes('yearly') || rent.month.toLowerCase().includes('varshik')))
+        ? 'Varshik (Yearly) ' + (rent.year || 2026)
+        : `${rent.month || ''} ${rent.year || 2026}`;
       document.getElementById('dispBillingPeriod').innerText = periodLabel;
       document.getElementById('dispDueDate').innerText = rent.dueDate || '10 Tarikh';
 
@@ -909,6 +1110,55 @@
 
       const todayIso = new Date().toISOString().split('T')[0];
       document.getElementById('promiseDate').min = todayIso;
+
+      // Check if Payment is Already Collected/Verified
+      const isPaid = st === 'PAID' || pendingVal <= 0 || (amountPaid > 0 && amountPaid >= amountDue);
+      const isPartial = st === 'PARTIAL' || (amountPaid > 0 && pendingVal > 0);
+
+      const receiptSection = document.getElementById('receiptSection');
+      const promiseCard = document.getElementById('promiseCard');
+      const paymentClaimCard = document.getElementById('paymentClaimCard');
+
+      if (isPaid || isPartial) {
+        receiptSection.style.display = 'block';
+        const cleanKey = (key || 'REC').replace(/[^a-zA-Z0-9]/g, '').slice(-6).toUpperCase();
+        const officialRecNo = rent.receiptNumber || `NLM-${rent.year || 2026}-${rent.shopNumber || '00'}-${cleanKey}`;
+        document.getElementById('recNumber').innerText = officialRecNo;
+        document.getElementById('recUnit').innerText = rent.isPersonal ? `Flat No. ${rent.shopNumber}` : `Shop No. ${rent.shopNumber}`;
+        document.getElementById('recTenantName').innerText = rent.tenantName || 'Kirayedaar';
+        document.getElementById('recPeriod').innerText = periodLabel;
+        document.getElementById('recPaidDate').innerText = rent.paidDate || new Date().toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' });
+        document.getElementById('recMode').innerText = rent.paymentMode || (rent.claimedPaidMode || 'Online / Cash');
+        
+        const displayPaidAmount = (amountPaid > 0) ? amountPaid : (amountDue > 0 ? amountDue : 0);
+        document.getElementById('recAmountPaid').innerText = formatCurrency(displayPaidAmount);
+
+        if (rent.claimedPaidRef) {
+          document.getElementById('rowRecUtr').style.display = 'flex';
+          document.getElementById('recUtr').innerText = rent.claimedPaidRef;
+        } else {
+          document.getElementById('rowRecUtr').style.display = 'none';
+        }
+
+        const waReceiptText = encodeURIComponent(`*Naseeb Lal Market - Official Rent Receipt*\n\nKirayedaar: ${rent.tenantName || 'Kirayedaar'}\nUnit: ${rent.isPersonal ? 'Flat' : 'Shop'} ${rent.shopNumber}\nAvadhi: ${periodLabel}\nRashi Jama: ${formatCurrency(rent.amountPaid || rent.amountDue)}\nStatus: VERIFIED & RECEIVED ✓\n\nApni Digital Receipt Dekhein / Download Karein:\n${window.location.href}`);
+        document.getElementById('btnShareWaReceipt').href = `https://wa.me/?text=${waReceiptText}`;
+
+        if (isPaid) {
+          if (promiseCard) promiseCard.style.display = 'none';
+          if (paymentClaimCard) paymentClaimCard.style.display = 'none';
+        } else {
+          if (promiseCard) promiseCard.style.display = 'block';
+          if (paymentClaimCard) paymentClaimCard.style.display = 'block';
+        }
+      } else {
+        receiptSection.style.display = 'none';
+        if (promiseCard) promiseCard.style.display = 'block';
+        if (paymentClaimCard) paymentClaimCard.style.display = 'block';
+      }
+    }
+
+    function printReceipt() {
+      window.print();
     }
 
     async function handlePromiseSubmit(e) {

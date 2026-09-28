@@ -514,19 +514,291 @@
       opacity: 1;
     }
 
+    /* Official Receipt Section */
+    .receipt-card {
+      background: #FFFFFF;
+      border: 2px solid #10B981;
+      border-radius: 18px;
+      padding: 20px 16px;
+      box-shadow: 0 8px 30px rgba(16, 185, 129, 0.12);
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
+      position: relative;
+    }
+
+    .receipt-header {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+
+    .receipt-icon {
+      width: 48px;
+      height: 48px;
+      border-radius: 12px;
+      background: #D1FAE5;
+      color: #059669;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 1.5rem;
+      flex-shrink: 0;
+    }
+
+    .receipt-slip {
+      background: #F8FAFC;
+      border: 1.5px dashed #94A3B8;
+      border-radius: 14px;
+      padding: 16px;
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+    }
+
+    .slip-title {
+      font-size: 0.95rem;
+      font-weight: 800;
+      color: #0F172A;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      border-bottom: 1px solid #E2E8F0;
+      padding-bottom: 8px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    .slip-row {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      font-size: 0.88rem;
+    }
+
+    .slip-row span {
+      color: #64748B;
+    }
+
+    .slip-row strong {
+      color: #0F172A;
+      font-weight: 700;
+      text-align: right;
+    }
+
+    .slip-total {
+      background: #ECFDF5;
+      border: 1.5px solid #A7F3D0;
+      border-radius: 10px;
+      padding: 12px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-top: 4px;
+    }
+
+    .slip-total-label {
+      font-size: 0.92rem;
+      font-weight: 700;
+      color: #065F46;
+    }
+
+    .slip-total-val {
+      font-size: 1.35rem;
+      font-weight: 800;
+      color: #047857;
+    }
+
+    .slip-stamp {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      background: #D1FAE5;
+      color: #047857;
+      border: 1.5px solid #10B981;
+      border-radius: 20px;
+      padding: 4px 12px;
+      font-size: 0.78rem;
+      font-weight: 800;
+      text-transform: uppercase;
+      align-self: center;
+      margin-top: 6px;
+    }
+
+    .btn-download-receipt {
+      background: linear-gradient(135deg, #059669 0%, #10B981 100%);
+      color: #FFFFFF;
+      box-shadow: 0 4px 14px rgba(16, 185, 129, 0.35);
+    }
+
+    /* Payment Under Verification Card */
+    .verification-card {
+      background: linear-gradient(135deg, #FFFBEB 0%, #FEF3C7 100%);
+      border: 2px solid #F59E0B;
+      border-radius: 16px;
+      padding: 18px;
+      margin-top: 14px;
+      box-shadow: 0 4px 14px rgba(245, 158, 11, 0.15);
+      animation: fadeIn 0.4s ease-out;
+    }
+
+    .verification-header {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      padding-bottom: 12px;
+      border-bottom: 1px dashed #FCD34D;
+    }
+
+    .verification-icon {
+      font-size: 1.8rem;
+      background: #FEF3C7;
+      border: 2px solid #F59E0B;
+      width: 44px;
+      height: 44px;
+      border-radius: 12px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      flex-shrink: 0;
+    }
+
+    .verification-badge {
+      background: #FDE68A;
+      color: #92400E;
+      font-size: 0.72rem;
+      font-weight: 800;
+      padding: 3px 8px;
+      border-radius: 6px;
+      border: 1px solid #F59E0B;
+      letter-spacing: 0.5px;
+    }
+
+    .verification-body {
+      background: #FFFFFF;
+      border: 1px solid #FDE68A;
+      border-radius: 12px;
+      padding: 14px;
+      margin-top: 12px;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+
+    .ver-row {
+      display: flex;
+      justify-content: space-between;
+      font-size: 0.86rem;
+      color: #475569;
+    }
+
+    .ver-row strong {
+      color: #0F172A;
+    }
+
+    .ver-notice {
+      display: flex;
+      gap: 8px;
+      align-items: flex-start;
+      background: #FEF3C7;
+      color: #92400E;
+      border-radius: 8px;
+      padding: 10px;
+      font-size: 0.8rem;
+      line-height: 1.4;
+      margin-top: 6px;
+    }
+
+    .ver-live-status {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      background: #FEF9C3;
+      border: 1px dashed #CA8A04;
+      border-radius: 8px;
+      padding: 8px 12px;
+      margin-top: 10px;
+      font-size: 0.82rem;
+      font-weight: 700;
+      color: #854D0E;
+    }
+
+    .pulse-dot {
+      width: 10px;
+      height: 10px;
+      background-color: #10B981;
+      border-radius: 50%;
+      display: inline-block;
+      box-shadow: 0 0 0 rgba(16, 185, 129, 0.4);
+      animation: pulseLive 1.8s infinite;
+      flex-shrink: 0;
+    }
+
+    @keyframes pulseLive {
+      0% {
+        box-shadow: 0 0 0 0 rgba(16, 185, 129, 0.7);
+      }
+      70% {
+        box-shadow: 0 0 0 8px rgba(16, 185, 129, 0);
+      }
+      100% {
+        box-shadow: 0 0 0 0 rgba(16, 185, 129, 0);
+      }
+    }
+
+    .btn-check-status {
+      width: 100%;
+      background: #FFFFFF;
+      color: #92400E;
+      border: 1.5px solid #F59E0B;
+      border-radius: 10px;
+      padding: 10px;
+      font-size: 0.85rem;
+      font-weight: 700;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 6px;
+      transition: all 0.2s ease;
+      box-shadow: var(--shadow-sm);
+      margin-top: 10px;
+    }
+
+    .btn-check-status:hover, .btn-check-status:active {
+      background: #FEF3C7;
+      transform: translateY(-1px);
+    }
+
     @media print {
       body {
         background: #FFF !important;
         color: #000 !important;
+        padding: 0 !important;
       }
-      .action-container, .fraud-alert, .quick-contacts, .search-box {
+      .action-card, .fraud-alert, .quick-contacts, .search-box, .btn-download-receipt, .btn-contact, .header-card .brand-contact, #promiseCard, #paymentClaimCard, #verificationCard, .verification-card, #toast, .amount-due-highlight {
         display: none !important;
       }
-      .header-card, .bill-card {
-        border: 1px solid #CCC !important;
+      .main-container {
+        max-width: 100% !important;
+        width: 100% !important;
+      }
+      .header-card {
+        border: none !important;
+        border-top: none !important;
+        box-shadow: none !important;
+        padding: 8px 0 !important;
+      }
+      .receipt-card {
+        border: 2px solid #000 !important;
         box-shadow: none !important;
         background: #FFF !important;
-        color: #000 !important;
+        page-break-inside: avoid;
+        display: block !important;
+      }
+      .receipt-slip {
+        border: 1px dashed #000 !important;
+        background: #FFF !important;
       }
     }
   </style>
@@ -633,8 +905,123 @@
     <!-- Tenant Action Section -->
     <div id="actionSection" class="action-container" style="display: none;">
 
+      <!-- Official Digital Receipt Card (Shown when status is PAID or Payment Verified) -->
+      <div id="receiptSection" class="receipt-card" style="display: none;">
+        <div class="receipt-header">
+          <div class="receipt-icon">🧾</div>
+          <div>
+            <div style="font-size: 1.15rem; font-weight: 800; color: #047857;">Bhugtan Safal & Verified! 🎉</div>
+            <div style="font-size: 0.82rem; color: #065F46; margin-top: 2px;">Naseeb Lal Market Management dwara payment verify ho chuka hai.</div>
+          </div>
+        </div>
+
+        <div class="receipt-slip">
+          <div class="slip-title">
+            <span>Official Rent Receipt</span>
+            <span id="recNumber" style="font-size: 0.78rem; color: #047857; font-weight: 700;">NLM-REC-2026</span>
+          </div>
+
+          <div class="slip-row">
+            <span>Dukaan / Flat No.:</span>
+            <strong id="recUnit">Shop No. --</strong>
+          </div>
+          <div class="slip-row">
+            <span>Kirayedaar Ka Naam:</span>
+            <strong id="recTenantName">--</strong>
+          </div>
+          <div class="slip-row">
+            <span>Billing Mahina / Avadhi:</span>
+            <strong id="recPeriod">--</strong>
+          </div>
+          <div class="slip-row">
+            <span>Bhugtan Tarikh (Paid Date):</span>
+            <strong id="recPaidDate">--</strong>
+          </div>
+          <div class="slip-row">
+            <span>Bhugtan Madhyam (Mode):</span>
+            <strong id="recMode">Cash / Online</strong>
+          </div>
+          <div class="slip-row" id="rowRecUtr" style="display: none;">
+            <span>Transaction Ref / UTR:</span>
+            <strong id="recUtr">--</strong>
+          </div>
+
+          <div class="slip-total">
+            <div class="slip-total-label">Kul Rashi Jama (Amount Paid):</div>
+            <div id="recAmountPaid" class="slip-total-val">₹0</div>
+          </div>
+
+          <div class="slip-stamp">
+            <span>✓</span> OFFICIAL VERIFIED PAYMENT RECEIPT
+          </div>
+        </div>
+
+        <!-- Download & WhatsApp Share Buttons -->
+        <div style="display: flex; flex-direction: column; gap: 8px;">
+          <button type="button" onclick="printReceipt()" class="btn-submit btn-download-receipt">
+            <span>📥</span> Download / Print Official Receipt (PDF)
+          </button>
+          <a id="btnShareWaReceipt" href="#" target="_blank" class="btn-contact btn-whatsapp" style="text-align: center;">
+            <span>💬</span> Receipt WhatsApp Par Share / Save Karein
+          </a>
+        </div>
+      </div>
+
+      <!-- Payment Under Verification Card (Shown when tenant submitted UTR but Admin hasn't verified yet) -->
+      <div id="verificationCard" class="verification-card" style="display: none;">
+        <div class="verification-header">
+          <div class="verification-icon">⏳</div>
+          <div style="flex: 1;">
+            <div style="display: flex; justify-content: space-between; align-items: center; gap: 8px; flex-wrap: wrap;">
+              <span style="font-size: 1.12rem; font-weight: 800; color: #92400E;">Payment Verification In Progress</span>
+              <span class="verification-badge">UNDER REVIEW</span>
+            </div>
+            <div style="font-size: 0.83rem; color: #B45309; margin-top: 3px;">
+              Aapka bhugtan proof darj ho chuka hai. Management iski janch kar rahi hai.
+            </div>
+          </div>
+        </div>
+
+        <div class="verification-body">
+          <div class="ver-row">
+            <span>Bhugtan Madhyam:</span>
+            <strong id="verMode">Online (UPI / Bank)</strong>
+          </div>
+          <div class="ver-row" id="rowVerUtr">
+            <span>Submitted UTR / Ref:</span>
+            <strong id="verUtr" style="font-family: monospace; font-size: 0.95rem; color: #1E293B;">--</strong>
+          </div>
+          <div class="ver-row">
+            <span>Jama Karne Ka Samay:</span>
+            <strong id="verTime">--</strong>
+          </div>
+
+          <div class="ver-notice">
+            <span>ℹ️</span>
+            <div>
+              Jaise hi Naseeb Lal Market management bank statement se is UTR ka milan karegi, yahan aapki <strong>Official Verified Digital Receipt (Seal & Stamp ke sath)</strong> turant unlock ho jayegi. Kripya dubara UTR submit na karein.
+            </div>
+          </div>
+
+          <div class="ver-live-status">
+            <span class="pulse-dot"></span>
+            <span id="verLiveText">Live Auto-Check Chalu Hai: Admin dwara approve hote hi receipt turant unlock ho jayegi.</span>
+          </div>
+
+          <button type="button" id="btnCheckStatusNow" onclick="checkPaymentStatusNow(true)" class="btn-check-status">
+            <span>🔄</span> Check Status Abhi Refresh Karein
+          </button>
+        </div>
+
+        <div style="margin-top: 14px;">
+          <a id="btnWaConfirmUtr" href="#" target="_blank" class="btn-contact btn-whatsapp" style="text-align: center; text-decoration: none;">
+            <span>💬</span> WhatsApp Par UTR Confirmation Bhejein
+          </a>
+        </div>
+      </div>
+
       <!-- Action 1: Vada Karein / Promise Date -->
-      <div class="action-card">
+      <div id="promiseCard" class="action-card">
         <div class="action-header">
           <div class="action-icon icon-blue">📅</div>
           <div>
@@ -659,7 +1046,7 @@
       </div>
 
       <!-- Action 2: I Have Paid / Bhugtan Jama Kiya Hai -->
-      <div class="action-card">
+      <div id="paymentClaimCard" class="action-card">
         <div class="action-header">
           <div class="action-icon icon-green">💳</div>
           <div>
@@ -730,6 +1117,7 @@
     let currentRentKey = null;
     let allRents = {};
     let allTenants = {};
+    let allEchoRecords = {};
 
     function formatCurrency(val) {
       const num = Number(val) || 0;
@@ -774,13 +1162,15 @@
       const shopParam = getQueryParam('shop') || getQueryParam('unit');
 
       try {
-        const [rentsRes, tenantsRes] = await Promise.all([
-          fetch(`${FIREBASE_BASE}/rents.json`).then(r => r.json()),
-          fetch(`${FIREBASE_BASE}/tenants.json`).then(r => r.json())
+        const [rentsRes, tenantsRes, echoRes] = await Promise.all([
+          fetch(`${FIREBASE_BASE}/rents.json`).then(r => r.json()).catch(() => ({})),
+          fetch(`${FIREBASE_BASE}/tenants.json`).then(r => r.json()).catch(() => ({})),
+          fetch(`${FIREBASE_BASE}/tenant_echo.json`).then(r => r.json()).catch(() => ({}))
         ]);
 
         allRents = rentsRes || {};
         allTenants = tenantsRes || {};
+        allEchoRecords = echoRes || {};
 
         if (echoSlug) {
           findAndDisplayRentBySlug(echoSlug);
@@ -879,13 +1269,19 @@
       statusBadge.innerText = st;
       statusBadge.className = 'status-badge ' + (st === 'PAID' ? 'status-paid' : st === 'PARTIAL' ? 'status-partial' : 'status-pending');
 
-      document.getElementById('dispPendingAmount').innerText = formatCurrency(rent.pendingAmount);
-      document.getElementById('dispTotalDue').innerText = formatCurrency(rent.amountDue);
-      document.getElementById('dispAmountPaid').innerText = formatCurrency(rent.amountPaid);
+      const amountDue = Number(rent.amountDue) || 0;
+      const amountPaid = Number(rent.amountPaid) || 0;
+      const pendingVal = (rent.pendingAmount !== undefined && rent.pendingAmount !== null)
+        ? Number(rent.pendingAmount)
+        : Math.max(0, amountDue - amountPaid);
 
-      const periodLabel = (rent.month.toLowerCase().includes('yearly') || rent.month.toLowerCase().includes('varshik'))
-        ? 'Varshik (Yearly) ' + rent.year
-        : `${rent.month} ${rent.year}`;
+      document.getElementById('dispPendingAmount').innerText = formatCurrency(pendingVal);
+      document.getElementById('dispTotalDue').innerText = formatCurrency(amountDue);
+      document.getElementById('dispAmountPaid').innerText = formatCurrency(amountPaid);
+
+      const periodLabel = (rent.month && (rent.month.toLowerCase().includes('yearly') || rent.month.toLowerCase().includes('varshik')))
+        ? 'Varshik (Yearly) ' + (rent.year || 2026)
+        : `${rent.month || ''} ${rent.year || 2026}`;
       document.getElementById('dispBillingPeriod').innerText = periodLabel;
       document.getElementById('dispDueDate').innerText = rent.dueDate || '10 Tarikh';
 
@@ -909,6 +1305,181 @@
 
       const todayIso = new Date().toISOString().split('T')[0];
       document.getElementById('promiseDate').min = todayIso;
+
+      // Check if Payment is Already Collected/Verified
+      const isPaid = st === 'PAID' || pendingVal <= 0 || (amountPaid > 0 && amountPaid >= amountDue);
+      const isPartial = st === 'PARTIAL' || (amountPaid > 0 && pendingVal > 0);
+
+      // Check if Tenant has submitted verification proof (Claim)
+      const echoKey1 = key;
+      const echoKey2 = `${rent.month}_${rent.year}_${rent.tenantId}`.replace(/\s+/g, '_');
+      const echoRecord = allEchoRecords[echoKey1] || allEchoRecords[echoKey2] || {};
+
+      const hasClaimed = Boolean(rent.tenantClaimedPaid || echoRecord.claimedPaid);
+      const claimMode = rent.tenantClaimedPaidMode || echoRecord.claimedPaidMode || (rent.paymentMode || 'Online');
+      const claimRef = rent.tenantClaimedPaidRef || echoRecord.claimedPaidRef || '';
+      const claimAtRaw = rent.tenantClaimedPaidAt || echoRecord.claimedPaidAt || '';
+
+      const isUnderVerification = !isPaid && hasClaimed;
+
+      const receiptSection = document.getElementById('receiptSection');
+      const verificationCard = document.getElementById('verificationCard');
+      const promiseCard = document.getElementById('promiseCard');
+      const paymentClaimCard = document.getElementById('paymentClaimCard');
+
+      if (isPaid || isPartial) {
+        stopAutoCheckPolling();
+        receiptSection.style.display = 'block';
+        if (verificationCard) verificationCard.style.display = 'none';
+        const cleanKey = (key || 'REC').replace(/[^a-zA-Z0-9]/g, '').slice(-6).toUpperCase();
+        const officialRecNo = rent.receiptNumber || `NLM-${rent.year || 2026}-${rent.shopNumber || '00'}-${cleanKey}`;
+        document.getElementById('recNumber').innerText = officialRecNo;
+        document.getElementById('recUnit').innerText = rent.isPersonal ? `Flat No. ${rent.shopNumber}` : `Shop No. ${rent.shopNumber}`;
+        document.getElementById('recTenantName').innerText = rent.tenantName || 'Kirayedaar';
+        document.getElementById('recPeriod').innerText = periodLabel;
+        document.getElementById('recPaidDate').innerText = rent.paidDate || new Date().toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' });
+        document.getElementById('recMode').innerText = rent.paymentMode || (rent.claimedPaidMode || 'Online / Cash');
+        
+        const displayPaidAmount = (amountPaid > 0) ? amountPaid : (amountDue > 0 ? amountDue : 0);
+        document.getElementById('recAmountPaid').innerText = formatCurrency(displayPaidAmount);
+
+        if (rent.claimedPaidRef) {
+          document.getElementById('rowRecUtr').style.display = 'flex';
+          document.getElementById('recUtr').innerText = rent.claimedPaidRef;
+        } else {
+          document.getElementById('rowRecUtr').style.display = 'none';
+        }
+
+        const waReceiptText = encodeURIComponent(`*Naseeb Lal Market - Official Rent Receipt*\n\nKirayedaar: ${rent.tenantName || 'Kirayedaar'}\nUnit: ${rent.isPersonal ? 'Flat' : 'Shop'} ${rent.shopNumber}\nAvadhi: ${periodLabel}\nRashi Jama: ${formatCurrency(rent.amountPaid || rent.amountDue)}\nStatus: VERIFIED & RECEIVED ✓\n\nApni Digital Receipt Dekhein / Download Karein:\n${window.location.href}`);
+        document.getElementById('btnShareWaReceipt').href = `https://wa.me/?text=${waReceiptText}`;
+
+        if (isPaid) {
+          if (promiseCard) promiseCard.style.display = 'none';
+          if (paymentClaimCard) paymentClaimCard.style.display = 'none';
+        } else {
+          if (promiseCard) promiseCard.style.display = 'block';
+          if (paymentClaimCard) paymentClaimCard.style.display = 'block';
+        }
+      } else if (isUnderVerification) {
+        receiptSection.style.display = 'none';
+        if (verificationCard) {
+          verificationCard.style.display = 'block';
+          startAutoCheckPolling();
+          document.getElementById('verMode').innerText = claimMode === 'Cash' ? 'Cash (Rokad)' : 'Online (UPI / Bank)';
+          if (claimRef) {
+            document.getElementById('rowVerUtr').style.display = 'flex';
+            document.getElementById('verUtr').innerText = claimRef;
+          } else {
+            document.getElementById('rowVerUtr').style.display = 'none';
+          }
+          let formattedTime = 'Haal hi me submit kiya';
+          if (claimAtRaw) {
+            try {
+              const d = new Date(claimAtRaw);
+              formattedTime = d.toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' });
+            } catch(e) {}
+          }
+          document.getElementById('verTime').innerText = formattedTime;
+
+          const waMsg = encodeURIComponent(`*Naseeb Lal Market - UTR Verification Anurodh*\n\nKirayedaar: ${rent.tenantName || 'Kirayedaar'}\nUnit: ${rent.shopNumber}\nAvadhi: ${periodLabel}\nMode: ${claimMode}\nUTR / Ref: ${claimRef}\n\nKripya bank account check karke payment verify karein.`);
+          document.getElementById('btnWaConfirmUtr').href = `https://wa.me/917654138539?text=${waMsg}`;
+        }
+        if (promiseCard) promiseCard.style.display = 'none';
+        if (paymentClaimCard) paymentClaimCard.style.display = 'none';
+      } else {
+        stopAutoCheckPolling();
+        receiptSection.style.display = 'none';
+        if (verificationCard) verificationCard.style.display = 'none';
+        if (promiseCard) promiseCard.style.display = 'block';
+        if (paymentClaimCard) paymentClaimCard.style.display = 'block';
+      }
+    }
+
+    let autoCheckTimer = null;
+    let isCheckingStatus = false;
+
+    function startAutoCheckPolling() {
+      if (autoCheckTimer) return;
+      autoCheckTimer = setInterval(() => {
+        checkPaymentStatusNow(false);
+      }, 7000);
+    }
+
+    function stopAutoCheckPolling() {
+      if (autoCheckTimer) {
+        clearInterval(autoCheckTimer);
+        autoCheckTimer = null;
+      }
+    }
+
+    async function checkPaymentStatusNow(isManual = false) {
+      if (!currentRentKey || isCheckingStatus) return;
+      isCheckingStatus = true;
+
+      const btn = document.getElementById('btnCheckStatusNow');
+      const liveText = document.getElementById('verLiveText');
+      if (isManual && btn) {
+        btn.disabled = true;
+        btn.innerHTML = `<span>⏳</span> Database Check Ho Raha Hai...`;
+      }
+      if (liveText) {
+        liveText.innerText = "Latest status check kiya ja raha hai...";
+      }
+
+      try {
+        const [freshRentRes, freshEchoRes] = await Promise.all([
+          fetch(`${FIREBASE_BASE}/rents/${currentRentKey}.json`).then(r => r.json()).catch(() => null),
+          fetch(`${FIREBASE_BASE}/tenant_echo/${currentRentKey}.json`).then(r => r.json()).catch(() => null)
+        ]);
+
+        if (freshRentRes) {
+          currentRent = Object.assign({}, currentRent, freshRentRes);
+          allRents[currentRentKey] = currentRent;
+          if (freshEchoRes) {
+            allEchoRecords[currentRentKey] = freshEchoRes;
+          }
+
+          const st = (currentRent.status || '').toUpperCase();
+          const amtDue = Number(currentRent.amountDue) || 0;
+          const amtPaid = Number(currentRent.amountPaid) || 0;
+          const pend = (currentRent.pendingAmount !== undefined && currentRent.pendingAmount !== null)
+            ? Number(currentRent.pendingAmount)
+            : Math.max(0, amtDue - amtPaid);
+
+          const isNowPaid = st === 'PAID' || pend <= 0 || (amtPaid > 0 && amtPaid >= amtDue);
+          const isNowPartial = st === 'PARTIAL' || (amtPaid > 0 && pend > 0);
+
+          if (isNowPaid || isNowPartial) {
+            stopAutoCheckPolling();
+            renderRent(currentRentKey, currentRent);
+            showToast("🎉 Mubarak! Payment verify ho chuka hai aur Receipt unlock ho gayi hai!");
+            const receiptEl = document.getElementById('receiptSection');
+            if (receiptEl) {
+              receiptEl.scrollIntoView({ behavior: 'smooth', block: 'start' });
+            }
+            return;
+          } else {
+            if (isManual) {
+              showToast("⏳ Abhi verification prkriya me hai. Kripya thoda intezaar karein.");
+            }
+          }
+        }
+      } catch (err) {
+        console.warn("Status check failed:", err);
+      } finally {
+        isCheckingStatus = false;
+        if (btn) {
+          btn.disabled = false;
+          btn.innerHTML = `<span>🔄</span> Check Status Abhi Refresh Karein`;
+        }
+        if (liveText) {
+          liveText.innerText = "Live Auto-Check Chalu Hai: Admin dwara approve hote hi receipt turant unlock ho jayegi.";
+        }
+      }
+    }
+
+    function printReceipt() {
+      window.print();
     }
 
     async function handlePromiseSubmit(e) {
@@ -987,11 +1558,12 @@
       btn.innerText = "Submitting Proof...";
 
       try {
+        const nowIso = new Date().toISOString();
         const claimPayload = {
           claimedPaid: true,
           claimedPaidMode: mode,
           claimedPaidRef: mode === 'Online' ? utr : cashNote,
-          claimedPaidAt: new Date().toISOString(),
+          claimedPaidAt: nowIso,
           tenantId: currentRent.tenantId,
           shopNumber: currentRent.shopNumber,
           tenantName: currentRent.tenantName
@@ -1007,12 +1579,27 @@
           method: 'PATCH',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
+            tenantClaimedPaid: true,
+            tenantClaimedPaidMode: mode,
+            tenantClaimedPaidRef: mode === 'Online' ? utr : cashNote,
+            tenantClaimedPaidAt: nowIso,
             promiseNote: `[Payment Claimed via ${mode}: ${mode === 'Online' ? utr : cashNote}]`
           })
         });
 
-        showToast("✅ Payment suchna bhej di gayi hai! Management UTR verify karegi.");
-        alert("Aapka payment proof submit ho gaya hai! Management se verification ke baad aapki digital receipt unlock ho jayegi. Shukriya - Naseeb Lal Market");
+        currentRent.tenantClaimedPaid = true;
+        currentRent.tenantClaimedPaidMode = mode;
+        currentRent.tenantClaimedPaidRef = mode === 'Online' ? utr : cashNote;
+        currentRent.tenantClaimedPaidAt = nowIso;
+
+        allEchoRecords[currentRentKey] = claimPayload;
+        const echoKey2 = `${currentRent.month}_${currentRent.year}_${currentRent.tenantId}`.replace(/\s+/g, '_');
+        allEchoRecords[echoKey2] = claimPayload;
+
+        renderRent(currentRentKey, currentRent);
+
+        showToast("✅ Payment suchna darj! Verification in progress.");
+        alert("Aapka payment proof darj ho gaya hai! Management dwara bank statement milan hote hi yahan official receipt aa jayegi. Shukriya - Naseeb Lal Market");
       } catch (err) {
         alert("Submission failed: " + err.message);
       } finally {

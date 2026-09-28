@@ -364,7 +364,7 @@ fun BroadcastUpdateDialog(
             if (currentUpdateInfo != null && currentUpdateInfo.latestVersionCode > BuildConfig.VERSION_CODE) {
                 currentUpdateInfo.latestVersionName
             } else {
-                "2.1"
+                "3.1"
             }
         )
     }

@@ -105,10 +105,11 @@ fun MainMarketScreen(
     val isPmcTaxDue by viewModel.isPmcTaxDueForCurrentYear.collectAsState()
     val currentPmcClearance by viewModel.currentPmcClearance.collectAsState()
     var showNotificationPanel by remember { mutableStateOf(false) }
+    val context = LocalContext.current
+    val prefs = remember(context) { context.getSharedPreferences("nlm_auth_prefs", Context.MODE_PRIVATE) }
     var updateDismissed by remember { mutableStateOf(false) }
     var showTenantLookupDialog by remember { mutableStateOf(false) }
     var activeTenantEchoRent by remember { mutableStateOf<RentRecord?>(null) }
-    val context = LocalContext.current
 
     LaunchedEffect(appUpdateInfo) {
         val info = appUpdateInfo
@@ -465,11 +466,20 @@ fun MainMarketScreen(
 
     // Auto-prompt App Update Dialog if newer version is released
     val currentUpdate = appUpdateInfo
-    if (currentUpdate != null && currentUpdate.latestVersionCode > BuildConfig.VERSION_CODE && !updateDismissed) {
+    val dismissedVersionCode = prefs.getInt("last_dismissed_update_version_code", 0)
+    val shouldShowUpdateDialog = currentUpdate != null &&
+        currentUpdate.latestVersionCode > BuildConfig.VERSION_CODE &&
+        !updateDismissed &&
+        (currentUpdate.isMandatory || currentUpdate.latestVersionCode > dismissedVersionCode)
+
+    if (shouldShowUpdateDialog && currentUpdate != null) {
         AppUpdateDialog(
             updateInfo = currentUpdate,
             isSuperAdmin = currentUser.isAdmin,
-            onDismiss = { updateDismissed = true },
+            onDismiss = {
+                updateDismissed = true
+                prefs.edit().putInt("last_dismissed_update_version_code", currentUpdate.latestVersionCode).apply()
+            },
             onResetUpdateAlert = {
                 val resetInfo = com.example.model.AppUpdateInfo(
                     latestVersionCode = BuildConfig.VERSION_CODE,
@@ -482,6 +492,7 @@ fun MainMarketScreen(
                 )
                 viewModel.publishAppUpdate(resetInfo)
                 updateDismissed = true
+                prefs.edit().putInt("last_dismissed_update_version_code", BuildConfig.VERSION_CODE).apply()
             }
         )
     }

@@ -956,7 +956,7 @@ fun ProfileScreen(
                                     contentColor = Color(0xFFDC2626)
                                 )
                             ) {
-                                Text("Clear Alert (Reset to v2.0)", fontSize = 11.5.sp, fontWeight = FontWeight.SemiBold)
+                                Text("Clear Alert (Reset to v${BuildConfig.VERSION_NAME})", fontSize = 11.5.sp, fontWeight = FontWeight.SemiBold)
                             }
 
                             Button(
