@@ -48,11 +48,11 @@ class MarketViewModel(application: Application) : AndroidViewModel(application) 
     private val _currentUser = MutableStateFlow<UserSession?>(null)
     val currentUser: StateFlow<UserSession?> = _currentUser.asStateFlow()
 
-    // Filters and search
-    private val _selectedMonth = MutableStateFlow("September")
+    // Filters and search (Defaults dynamically to the current calendar month & year)
+    private val _selectedMonth = MutableStateFlow(BillingCycleHelper.getCurrentMonth())
     val selectedMonth: StateFlow<String> = _selectedMonth.asStateFlow()
 
-    private val _selectedYear = MutableStateFlow(2026)
+    private val _selectedYear = MutableStateFlow(BillingCycleHelper.getCurrentYear())
     val selectedYear: StateFlow<Int> = _selectedYear.asStateFlow()
 
     private val _searchQuery = MutableStateFlow("")
@@ -361,7 +361,9 @@ class MarketViewModel(application: Application) : AndroidViewModel(application) 
             val username = authPrefs.getString("username", "") ?: ""
             val roleStr = authPrefs.getString("role", "") ?: ""
             val savedAdminName = authPrefs.getString("admin_name", "Vimal Kumar") ?: "Vimal Kumar"
-            val savedAdminPhone = authPrefs.getString("admin_phone", "9876543210") ?: "9876543210"
+            val rawAdminPhone = authPrefs.getString("admin_phone", "7654138539") ?: "7654138539"
+            val savedAdminPhone = if (rawAdminPhone == "9876543210" || rawAdminPhone.isBlank()) "7654138539" else rawAdminPhone
+            authPrefs.edit().putString("admin_phone", savedAdminPhone).apply()
             var displayName = authPrefs.getString("display_name", "") ?: ""
             var phone = authPrefs.getString("phone", "") ?: ""
             val subAdminId = authPrefs.getString("sub_admin_id", "") ?: ""
@@ -375,8 +377,9 @@ class MarketViewModel(application: Application) : AndroidViewModel(application) 
                 if (displayName.isBlank() || displayName.contains("(Master Admin)")) {
                     displayName = savedAdminName
                 }
-                if (phone.isBlank()) {
+                if (phone.isBlank() || phone == "9876543210") {
                     phone = savedAdminPhone
+                    authPrefs.edit().putString("phone", savedAdminPhone).apply()
                 }
             }
             val session = UserSession(
@@ -449,7 +452,9 @@ class MarketViewModel(application: Application) : AndroidViewModel(application) 
             // 1. Check Master Admin credentials
             if (trimmedUser == "v1i2m3a4l" && trimmedPass == "Vivani@1928") {
                 val savedAdminName = authPrefs.getString("admin_name", "Vimal Kumar") ?: "Vimal Kumar"
-                val savedAdminPhone = authPrefs.getString("admin_phone", "9876543210") ?: "9876543210"
+                val rawAdminPhone = authPrefs.getString("admin_phone", "7654138539") ?: "7654138539"
+                val savedAdminPhone = if (rawAdminPhone == "9876543210" || rawAdminPhone.isBlank()) "7654138539" else rawAdminPhone
+                authPrefs.edit().putString("admin_phone", savedAdminPhone).apply()
                 val adminSession = UserSession(
                     username = "v1i2m3a4l",
                     role = UserRole.ADMIN,
@@ -592,6 +597,11 @@ class MarketViewModel(application: Application) : AndroidViewModel(application) 
 
     fun setYear(year: Int) {
         _selectedYear.value = year
+    }
+
+    fun resetToCurrentMonth() {
+        _selectedMonth.value = BillingCycleHelper.getCurrentMonth()
+        _selectedYear.value = BillingCycleHelper.getCurrentYear()
     }
 
     fun setSearchQuery(query: String) {
@@ -1437,7 +1447,12 @@ class MarketViewModel(application: Application) : AndroidViewModel(application) 
                             cycleMonths = tenant?.cycleMonths ?: 1,
                             isPersonal = rent.isPersonal,
                             electricityBill = rent.electricityBill,
-                            flatBaseRent = (rent.amountDue - rent.electricityBill).coerceAtLeast(0.0)
+                            flatBaseRent = (rent.amountDue - rent.electricityBill).coerceAtLeast(0.0),
+                            amountDue = rent.amountDue,
+                            amountPaid = rent.amountPaid,
+                            pmcTax = rent.pmcTax,
+                            priorArrears = tenant?.previousDues?.coerceAtLeast(0.0) ?: 0.0,
+                            notes = rent.notes
                         )
 
                         val result = if (!apiKey.isNullOrBlank()) {

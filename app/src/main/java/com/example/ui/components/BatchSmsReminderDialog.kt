@@ -26,6 +26,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.Chat
 import androidx.compose.material.icons.automirrored.filled.Send
 import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.Close
@@ -116,7 +117,10 @@ fun BatchSmsReminderDialog(
     val isSubAdmin = currentUser?.isSubAdmin == true
     val authPrefs = remember { context.getSharedPreferences("auth_prefs", Context.MODE_PRIVATE) }
     val savedAdminName = remember { authPrefs.getString("admin_name", "Vimal Kumar") ?: "Vimal Kumar" }
-    val savedAdminPhone = remember { authPrefs.getString("admin_phone", "9876543210") ?: "9876543210" }
+    val savedAdminPhone = remember {
+        val phoneRaw = authPrefs.getString("admin_phone", "7654138539") ?: "7654138539"
+        if (phoneRaw == "9876543210" || phoneRaw.isBlank()) "7654138539" else phoneRaw
+    }
 
     var senderName by remember(currentUser) {
         mutableStateOf(
@@ -135,7 +139,7 @@ fun BatchSmsReminderDialog(
                 currentUser?.phone?.ifBlank { "" } ?: ""
             } else {
                 val adminPhone = currentUser?.phone?.trim()
-                if (!adminPhone.isNullOrBlank()) adminPhone else savedAdminPhone
+                if (!adminPhone.isNullOrBlank() && adminPhone != "9876543210") adminPhone else savedAdminPhone
             }
         )
     }
@@ -437,7 +441,7 @@ fun BatchSmsReminderDialog(
                                     verticalAlignment = Alignment.CenterVertically
                                 ) {
                                     Icon(
-                                        imageVector = Icons.Filled.PlayArrow,
+                                        imageVector = Icons.AutoMirrored.Filled.Chat,
                                         contentDescription = null,
                                         tint = if (selectedChannel == "WhatsApp") Color.White else MaterialTheme.colorScheme.onSurfaceVariant,
                                         modifier = Modifier.size(15.dp)
@@ -479,7 +483,12 @@ fun BatchSmsReminderDialog(
                             isPersonal = currentRent.isPersonal,
                             electricityBill = currentRent.electricityBill,
                             flatBaseRent = (currentRent.amountDue - currentRent.electricityBill).coerceAtLeast(0.0),
-                            portalUrl = currentPortalUrl
+                            portalUrl = currentPortalUrl,
+                            amountDue = currentRent.amountDue,
+                            amountPaid = currentRent.amountPaid,
+                            pmcTax = currentRent.pmcTax,
+                            priorArrears = currentTenant?.previousDues?.coerceAtLeast(0.0) ?: 0.0,
+                            notes = currentRent.notes
                         )
 
                         Surface(
@@ -801,7 +810,12 @@ fun BatchSmsReminderDialog(
                                 isPersonal = sampleRent.isPersonal,
                                 electricityBill = sampleRent.electricityBill,
                                 flatBaseRent = (sampleRent.amountDue - sampleRent.electricityBill).coerceAtLeast(0.0),
-                                portalUrl = samplePortalUrl
+                                portalUrl = samplePortalUrl,
+                                amountDue = sampleRent.amountDue,
+                                amountPaid = sampleRent.amountPaid,
+                                pmcTax = sampleRent.pmcTax,
+                                priorArrears = sampleTenant?.previousDues?.coerceAtLeast(0.0) ?: 0.0,
+                                notes = sampleRent.notes
                             )
                         } else {
                             "Namaste Kirayedaar ji, aapka kiraya due hai..."
@@ -859,12 +873,19 @@ fun BatchSmsReminderDialog(
                         horizontalArrangement = Arrangement.SpaceBetween,
                         verticalAlignment = Alignment.CenterVertically
                     ) {
-                        Text(
-                            text = "Or Send Individually (${sentTenantsMap.size}/${pendingRents.size} Sent):",
-                            fontSize = 12.sp,
-                            fontWeight = FontWeight.Bold,
-                            color = MaterialTheme.colorScheme.onSurface
-                        )
+                        Column {
+                            Text(
+                                text = "Send Individually (${sentTenantsMap.size}/${pendingRents.size} Sent):",
+                                fontSize = 12.5.sp,
+                                fontWeight = FontWeight.Bold,
+                                color = MaterialTheme.colorScheme.onSurface
+                            )
+                            Text(
+                                text = "Sabhi ${pendingRents.size} kirayedaaron ki list (scroll karein):",
+                                fontSize = 11.sp,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        }
 
                         if (sentTenantsMap.isNotEmpty()) {
                             TextButton(
@@ -882,10 +903,10 @@ fun BatchSmsReminderDialog(
 
                     Spacer(modifier = Modifier.height(8.dp))
 
-                    // Clean Compact Tenant Cards
+                    // Clean Compact Tenant Cards (All tenants visible and scrollable)
                     Column(
                         verticalArrangement = Arrangement.spacedBy(6.dp),
-                        modifier = Modifier.heightIn(max = 240.dp)
+                        modifier = Modifier.fillMaxWidth()
                     ) {
                         pendingRents.forEach { rent ->
                             val tenant = tenants.find { it.id == rent.tenantId }
@@ -893,7 +914,7 @@ fun BatchSmsReminderDialog(
                             val isSent = sentTenantsMap.containsKey(rent.id)
 
                             val portalUrl = ShareUtils.generateTenantEchoPortalUrl(rent)
-                            val msg = remember(rent, senderName, senderContactPhone) {
+                            val msg = remember(rent, tenant, senderName, senderContactPhone) {
                                 SmsReminderHelper.formatReminderMessage(
                                     tenantName = rent.tenantName,
                                     shopNumber = rent.shopNumber,
@@ -906,7 +927,12 @@ fun BatchSmsReminderDialog(
                                     isPersonal = rent.isPersonal,
                                     electricityBill = rent.electricityBill,
                                     flatBaseRent = (rent.amountDue - rent.electricityBill).coerceAtLeast(0.0),
-                                    portalUrl = portalUrl
+                                    portalUrl = portalUrl,
+                                    amountDue = rent.amountDue,
+                                    amountPaid = rent.amountPaid,
+                                    pmcTax = rent.pmcTax,
+                                    priorArrears = tenant?.previousDues?.coerceAtLeast(0.0) ?: 0.0,
+                                    notes = rent.notes
                                 )
                             }
 
@@ -934,12 +960,41 @@ fun BatchSmsReminderDialog(
                                             maxLines = 1,
                                             overflow = TextOverflow.Ellipsis
                                         )
+                                        val priorArrears = tenant?.previousDues?.coerceAtLeast(0.0) ?: 0.0
+                                        val dueSubtitle = buildString {
+                                            append("${if (rent.isPersonal) "Flat" else "Shop"} ${rent.shopNumber}")
+                                            if (rent.isPartial || rent.amountPaid > 0) {
+                                                append(" • [PARTIAL] ₹${rent.pendingAmount.toInt()} (Paid ₹${rent.amountPaid.toInt()} of ₹${rent.amountDue.toInt()})")
+                                            } else {
+                                                append(" • Due: ₹${rent.pendingAmount.toInt()}")
+                                            }
+                                            if (rent.electricityBill > 0) {
+                                                append(" • Bijli: ₹${rent.electricityBill.toInt()}")
+                                            }
+                                            if (priorArrears > 0) {
+                                                append(" • Purana Baki: ₹${priorArrears.toInt()}")
+                                            }
+                                        }
                                         Text(
-                                            text = "${if (rent.isPersonal) "Flat" else "Shop"} ${rent.shopNumber} • Due: ₹${rent.pendingAmount.toInt()}",
+                                            text = dueSubtitle,
                                             fontSize = 11.sp,
-                                            color = StatusPending,
+                                            color = if (rent.isPartial || rent.amountPaid > 0) Color(0xFFD97706) else StatusPending,
                                             fontWeight = FontWeight.SemiBold
                                         )
+                                        if (phone.isNotBlank()) {
+                                            Text(
+                                                text = "📞 $phone",
+                                                fontSize = 10.5.sp,
+                                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                                            )
+                                        } else {
+                                            Text(
+                                                text = "⚠️ Phone missing",
+                                                fontSize = 10.5.sp,
+                                                color = Color(0xFFDC2626),
+                                                fontWeight = FontWeight.SemiBold
+                                            )
+                                        }
                                     }
 
                                     Row(
@@ -961,10 +1016,10 @@ fun BatchSmsReminderDialog(
                                             }
                                         }
 
-                                        // WhatsApp Icon Button
+                                        // WhatsApp Button
                                         Surface(
                                             modifier = Modifier
-                                                .size(34.dp)
+                                                .size(38.dp)
                                                 .clip(RoundedCornerShape(8.dp))
                                                 .clickable {
                                                     if (phone.isBlank()) {
@@ -979,18 +1034,18 @@ fun BatchSmsReminderDialog(
                                         ) {
                                             Box(contentAlignment = Alignment.Center) {
                                                 Icon(
-                                                    imageVector = Icons.Filled.PlayArrow,
-                                                    contentDescription = "WhatsApp",
+                                                    imageVector = Icons.AutoMirrored.Filled.Chat,
+                                                    contentDescription = "Send WhatsApp",
                                                     tint = Color(0xFF16A34A),
-                                                    modifier = Modifier.size(16.dp)
+                                                    modifier = Modifier.size(18.dp)
                                                 )
                                             }
                                         }
 
-                                        // SMS Icon Button
+                                        // SMS Button
                                         Surface(
                                             modifier = Modifier
-                                                .size(34.dp)
+                                                .size(38.dp)
                                                 .clip(RoundedCornerShape(8.dp))
                                                 .clickable {
                                                     if (phone.isBlank()) {
@@ -1006,9 +1061,9 @@ fun BatchSmsReminderDialog(
                                             Box(contentAlignment = Alignment.Center) {
                                                 Icon(
                                                     imageVector = Icons.Filled.Sms,
-                                                    contentDescription = "SMS",
+                                                    contentDescription = "Send SMS",
                                                     tint = NavyPrimary,
-                                                    modifier = Modifier.size(16.dp)
+                                                    modifier = Modifier.size(18.dp)
                                                 )
                                             }
                                         }

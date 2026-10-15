@@ -10,6 +10,16 @@ object BillingCycleHelper {
         "July", "August", "September", "October", "November", "December"
     )
 
+    fun getCurrentMonth(): String {
+        val cal = Calendar.getInstance()
+        val monthIdx = cal.get(Calendar.MONTH)
+        return MONTHS.getOrElse(monthIdx) { "October" }
+    }
+
+    fun getCurrentYear(): Int {
+        return Calendar.getInstance().get(Calendar.YEAR)
+    }
+
     fun getMonthIndex(monthName: String): Int {
         val idx = MONTHS.indexOfFirst { it.equals(monthName.trim(), ignoreCase = true) }
         return if (idx >= 0) idx else 0

@@ -1,0 +1,722 @@
+%PDF-1.4
+%‚„œ”
+1 0 obj
+<< /Type /Catalog /Pages 2 0 R >>
+endobj
+2 0 obj
+<< /Type /Pages /Kids [3 0 R 5 0 R 7 0 R] /Count 3 >>
+endobj
+3 0 obj
+<< /Type /Page /Parent 2 0 R /MediaBox [0 0 595.28 841.89] /Resources << /Font << /F1 9 0 R /F2 10 0 R /F3 11 0 R >> >> /Contents 4 0 R >>
+endobj
+4 0 obj
+<< /Length 5654 >>
+stream
+0.8 0.8 0.8 RG
+0.5 w
+50 805 m 545 805 l S
+BT
+/F3 8 Tf
+0.4 0.4 0.4 rg
+50 810 Td
+(Naseeb Lal Market Suite - System Documentation & Interview Playbook) Tj
+ET
+0.05 0.1 0.2 rg
+50 725 495 70 re f
+BT
+/F2 16 Tf
+1 0.8 0.2 rg
+65 765 Td
+(Naseeb Lal Market - Commercial Property Ecosystem) Tj
+/F1 10 Tf
+1 1 1 rg
+65 745 Td
+(Full-Stack Android \(Compose\) & Cloud-Synced Tenant Web Portal | Technical Documentation) Tj
+ET
+0.85 0.5 0.1 rg
+50 692 495 20 re f
+BT
+/F2 11 Tf
+1 1 1 rg
+58 696 Td
+(1. EXECUTIVE SUMMARY & PROBLEM STATEMENT) Tj
+ET
+BT
+/F1 9 Tf
+0.1 0.1 0.1 rg
+50 670 Td
+(In commercial markets and complex retail spaces, managing monthly rent collections, electrical sub-meter) Tj
+ET
+BT
+/F1 9 Tf
+0.1 0.1 0.1 rg
+50 658 Td
+(utility readings, and municipal taxes across dozens of units is overwhelmingly manual and prone to severe) Tj
+ET
+BT
+/F1 9 Tf
+0.1 0.1 0.1 rg
+50 646 Td
+(revenue leakage. Landlords face persistent friction due to fraudulent online transaction claims, fake UPI) Tj
+ET
+BT
+/F1 9 Tf
+0.1 0.1 0.1 rg
+50 634 Td
+(screenshots, misplaced paper slips, and cumbersome dispute resolution.) Tj
+ET
+BT
+/F1 9 Tf
+0.1 0.1 0.1 rg
+50 618 Td
+(The Solution: Naseeb Lal Market is an integrated commercial property management suite that pairs a) Tj
+ET
+BT
+/F1 9 Tf
+0.1 0.1 0.1 rg
+50 606 Td
+(native Android Admin Application \(for property owners and collectors\) with a zero-barrier, mobile-first) Tj
+ET
+BT
+/F1 9 Tf
+0.1 0.1 0.1 rg
+50 594 Td
+(Web Portal \(for tenants\). Through real-time cloud synchronization, automated utility calculations, and an) Tj
+ET
+BT
+/F1 9 Tf
+0.1 0.1 0.1 rg
+50 582 Td
+(anti-fraud reconciliation queue, it establishes an airtight, paperless property workflow.) Tj
+ET
+0.85 0.5 0.1 rg
+50 560 495 20 re f
+BT
+/F2 11 Tf
+1 1 1 rg
+58 564 Td
+(2. SYSTEM ARCHITECTURE & TECHNOLOGY STACK) Tj
+ET
+BT
+/F1 8.5 Tf
+0.1 0.1 0.1 rg
+50 538.5 Td
+(- Native Mobile Frontend: 100% Jetpack Compose with Material 3 dynamic styling, custom canvas graphics, and) Tj
+ET
+BT
+/F1 8.5 Tf
+0.1 0.1 0.1 rg
+60 527.0 Td
+(adaptive edge-to-edge layouts.) Tj
+ET
+BT
+/F1 8.5 Tf
+0.1 0.1 0.1 rg
+50 513.5 Td
+(- Programming Language: Modern Kotlin 2.x utilizing Coroutines, StateFlow, and Clean MVVM architecture.) Tj
+ET
+BT
+/F1 8.5 Tf
+0.1 0.1 0.1 rg
+50 500.0 Td
+(- Cloud Database: Google Firebase Realtime Database \(RTDB\) providing sub-second bidirectional) Tj
+ET
+BT
+/F1 8.5 Tf
+0.1 0.1 0.1 rg
+60 488.5 Td
+(synchronization, local disk persistence, and optimistic offline updates.) Tj
+ET
+BT
+/F1 8.5 Tf
+0.1 0.1 0.1 rg
+50 475.0 Td
+(- Tenant Web Portal: Zero-dependency, high-speed HTML5 / CSS3 / ES6 web portal deployed via Firebase) Tj
+ET
+BT
+/F1 8.5 Tf
+0.1 0.1 0.1 rg
+60 463.5 Td
+(Hosting CDN with query-slug routing \(?shop=X\).) Tj
+ET
+BT
+/F1 8.5 Tf
+0.1 0.1 0.1 rg
+50 450.0 Td
+(- Communication & SMS: Fast2SMS REST gateway integration for automated 1-click batch SMS reminders with) Tj
+ET
+BT
+/F1 8.5 Tf
+0.1 0.1 0.1 rg
+60 438.5 Td
+(native SIM selection fallback; WhatsApp direct deep-link dispatch.) Tj
+ET
+BT
+/F1 8.5 Tf
+0.1 0.1 0.1 rg
+50 425.0 Td
+(- Document Engine: Android native PdfDocument vector engine and Apache POI spreadsheet generator for) Tj
+ET
+BT
+/F1 8.5 Tf
+0.1 0.1 0.1 rg
+60 413.5 Td
+(automated tax clearance slips and audit logs.) Tj
+ET
+0.85 0.5 0.1 rg
+50 393.5 495 20 re f
+BT
+/F2 11 Tf
+1 1 1 rg
+58 397.5 Td
+(3. CORE FUNCTIONAL MODULES) Tj
+ET
+BT
+/F2 10.5 Tf
+0.1 0.18 0.35 rg
+50 371.5 Td
+(A. Dual-Workspace Management) Tj
+ET
+0.2 0.4 0.7 RG
+1 w
+50 368.5 m 200 368.5 l S
+BT
+/F1 9 Tf
+0.1 0.1 0.1 rg
+50 347.5 Td
+(Features 1-tap workspace switching between Public Commercial Market \(retail shops\) and Private) Tj
+ET
+BT
+/F1 9 Tf
+0.1 0.1 0.1 rg
+50 335.5 Td
+(Residential Flats, providing segregated analytics while maintaining single database consistency.) Tj
+ET
+BT
+/F2 10.5 Tf
+0.1 0.18 0.35 rg
+50 319.5 Td
+(B. Role-Based Access Control \(RBAC\)) Tj
+ET
+0.2 0.4 0.7 RG
+1 w
+50 316.5 m 200 316.5 l S
+BT
+/F1 9 Tf
+0.1 0.1 0.1 rg
+50 295.5 Td
+(Super-Admin maintains full administrative control over rent corrections, activity audits, and sub-admin) Tj
+ET
+BT
+/F1 9 Tf
+0.1 0.1 0.1 rg
+50 283.5 Td
+(accounts. Field Sub-Admins are limited strictly to recording payments and logging meter readings.) Tj
+ET
+BT
+/F2 10.5 Tf
+0.1 0.18 0.35 rg
+50 267.5 Td
+(C. Utility Meter & Municipal Tax Billing Engine) Tj
+ET
+0.2 0.4 0.7 RG
+1 w
+50 264.5 m 200 264.5 l S
+BT
+/F1 9 Tf
+0.1 0.1 0.1 rg
+50 243.5 Td
+(Automates electricity sub-meter calculation using the formula: Due = \(Current Reading - Previous) Tj
+ET
+BT
+/F1 9 Tf
+0.1 0.1 0.1 rg
+50 231.5 Td
+(Reading\) x Tariff Rate. Tracks Patna Municipal Corporation \(PMC\) holding tax clearances with automated) Tj
+ET
+BT
+/F1 9 Tf
+0.1 0.1 0.1 rg
+50 219.5 Td
+(reminder windows.) Tj
+ET
+BT
+/F2 10.5 Tf
+0.1 0.18 0.35 rg
+50 203.5 Td
+(D. Anti-Fraud Payment Verification Pipeline \(Tenant Echo\)) Tj
+ET
+0.2 0.4 0.7 RG
+1 w
+50 200.5 m 200 200.5 l S
+BT
+/F1 9 Tf
+0.1 0.1 0.1 rg
+50 179.5 Td
+(Eliminates fake payment claims. When a tenant enters an online UTR or cash note on the web portal, the) Tj
+ET
+BT
+/F1 9 Tf
+0.1 0.1 0.1 rg
+50 167.5 Td
+(form immediately locks to prevent duplicates. The claim is routed to the Admin dashboard's dedicated) Tj
+ET
+BT
+/F1 9 Tf
+0.1 0.1 0.1 rg
+50 155.5 Td
+(QUEUE badge. Only after manual bank reconciliation does the admin tap 'Verify & Mark Full Paid', which) Tj
+ET
+BT
+/F1 9 Tf
+0.1 0.1 0.1 rg
+50 143.5 Td
+(cryptographically provisions a tamper-evident receipt number and unlocks the official receipt on the) Tj
+ET
+BT
+/F1 9 Tf
+0.1 0.1 0.1 rg
+50 131.5 Td
+(tenant's browser.) Tj
+ET
+0.8 0.8 0.8 RG
+0.5 w
+50 45 m 545 45 l S
+BT
+/F3 8 Tf
+0.4 0.4 0.4 rg
+50 35 Td
+(Confidential - Enterprise Architecture & Technical Specification) Tj
+480 35 Td
+(Page 1) Tj
+ET
+endstream
+endobj
+5 0 obj
+<< /Type /Page /Parent 2 0 R /MediaBox [0 0 595.28 841.89] /Resources << /Font << /F1 9 0 R /F2 10 0 R /F3 11 0 R >> >> /Contents 6 0 R >>
+endobj
+6 0 obj
+<< /Length 7003 >>
+stream
+0.8 0.8 0.8 RG
+0.5 w
+50 805 m 545 805 l S
+BT
+/F3 8 Tf
+0.4 0.4 0.4 rg
+50 810 Td
+(Naseeb Lal Market Suite - System Documentation & Interview Playbook) Tj
+ET
+0.85 0.5 0.1 rg
+50 772 495 20 re f
+BT
+/F2 11 Tf
+1 1 1 rg
+58 776 Td
+(4. INTERVIEW PRESENTATION PLAYBOOK \(FOR CANDIDATES\)) Tj
+ET
+BT
+/F2 10.5 Tf
+0.1 0.18 0.35 rg
+50 750 Td
+(The 30-Second Elevator Pitch) Tj
+ET
+0.2 0.4 0.7 RG
+1 w
+50 747 m 200 747 l S
+0.95 0.97 1.0 rg
+0.3 0.5 0.8 RG
+1 w
+50 648 495 90 re B
+BT
+/F2 9.5 Tf
+0.3 0.5 0.8 rg
+60 724 Td
+(How to introduce this project in an interview:) Tj
+ET
+BT
+/F1 8.5 Tf
+0.15 0.15 0.15 rg
+60 712 Td
+("I designed and developed Naseeb Lal Market, a full-stack commercial property management suite built with) Tj
+ET
+BT
+/F1 8.5 Tf
+0.15 0.15 0.15 rg
+60 701 Td
+(Jetpack Compose on Android and a real-time web portal on Firebase. It solves real-world rent tracking,) Tj
+ET
+BT
+/F1 8.5 Tf
+0.15 0.15 0.15 rg
+60 690 Td
+(utility sub-meter calculations, and payment fraud across commercial complexes. Its standout capability is) Tj
+ET
+BT
+/F1 8.5 Tf
+0.15 0.15 0.15 rg
+60 679 Td
+(an Anti-Fraud Verification Pipeline: tenants submit UTR proofs via zero-install deep links, and upon admin) Tj
+ET
+BT
+/F1 8.5 Tf
+0.15 0.15 0.15 rg
+60 668 Td
+(approval in the Android app, verified PDF receipts unlock dynamically in real time without refreshing the) Tj
+ET
+BT
+/F1 8.5 Tf
+0.15 0.15 0.15 rg
+60 657 Td
+(page.") Tj
+ET
+BT
+/F2 10.5 Tf
+0.1 0.18 0.35 rg
+50 628 Td
+(The 2-Minute In-Depth Walkthrough \(STAR Method\)) Tj
+ET
+0.2 0.4 0.7 RG
+1 w
+50 625 m 200 625 l S
+BT
+/F1 8.5 Tf
+0.1 0.1 0.1 rg
+50 604.5 Td
+(- Situation \(Problem\): Commercial landlords struggle with manual notebooks, disputed utility calculations,) Tj
+ET
+BT
+/F1 8.5 Tf
+0.1 0.1 0.1 rg
+60 593.0 Td
+(and fraudulent UPI payment claims from retail tenants.) Tj
+ET
+BT
+/F1 8.5 Tf
+0.1 0.1 0.1 rg
+50 579.5 Td
+(- Task \(Objective\): Build a high-reliability, fraud-proof ecosystem that requires zero onboarding friction) Tj
+ET
+BT
+/F1 8.5 Tf
+0.1 0.1 0.1 rg
+60 568.0 Td
+(for non-tech-savvy tenants while giving property owners real-time ledger visibility.) Tj
+ET
+BT
+/F1 8.5 Tf
+0.1 0.1 0.1 rg
+50 554.5 Td
+(- Action \(Engineering\): Implemented clean MVVM on Android using Kotlin Coroutines and StateFlow for state) Tj
+ET
+BT
+/F1 8.5 Tf
+0.1 0.1 0.1 rg
+60 543.0 Td
+(management; established bidirectional WebSocket sync via Firebase RTDB; built a lightweight responsive) Tj
+ET
+BT
+/F1 8.5 Tf
+0.1 0.1 0.1 rg
+60 531.5 Td
+(tenant portal with automatic state polling; and implemented an on-device PDF generation engine.) Tj
+ET
+BT
+/F1 8.5 Tf
+0.1 0.1 0.1 rg
+50 518.0 Td
+(- Result \(Impact\): Completely eliminated billing reconciliation disputes, enabled automated 1-click batch) Tj
+ET
+BT
+/F1 8.5 Tf
+0.1 0.1 0.1 rg
+60 506.5 Td
+(reminder dispatch, and achieved instant verified digital receipt generation.) Tj
+ET
+0.85 0.5 0.1 rg
+50 486.5 495 20 re f
+BT
+/F2 11 Tf
+1 1 1 rg
+58 490.5 Td
+(5. TOP TECHNICAL INTERVIEW QUESTIONS & ANSWERS) Tj
+ET
+0.98 0.98 0.98 rg
+0.8 0.8 0.8 RG
+0.5 w
+50 392.5 495 84 re B
+0.1 0.3 0.6 rg
+50 392.5 4 84 re f
+BT
+/F2 9.5 Tf
+0.1 0.25 0.5 rg
+62 462.5 Td
+(Q1: Why did you choose Jetpack Compose over traditional XML Layouts?) Tj
+ET
+BT
+/F1 8.5 Tf
+0.2 0.2 0.2 rg
+62 446.5 Td
+(Compose uses a declarative paradigm where UI is a pure function of state \(UI = f\(State\)\). In this) Tj
+ET
+BT
+/F1 8.5 Tf
+0.2 0.2 0.2 rg
+62 435.5 Td
+(application, real-time sync indicators, meter reading cards, and payment queue badges undergo frequent live) Tj
+ET
+BT
+/F1 8.5 Tf
+0.2 0.2 0.2 rg
+62 424.5 Td
+(state mutations. With Compose and StateFlow \(observed via collectAsStateWithLifecycle\), the framework) Tj
+ET
+BT
+/F1 8.5 Tf
+0.2 0.2 0.2 rg
+62 413.5 Td
+(performs intelligent recomposition on only the modified nodes. This eliminated complex View-binding) Tj
+ET
+BT
+/F1 8.5 Tf
+0.2 0.2 0.2 rg
+62 402.5 Td
+(boilerplate, reduced lines of code by over 40%, and completely eradicated null-pointer exceptions.) Tj
+ET
+0.98 0.98 0.98 rg
+0.8 0.8 0.8 RG
+0.5 w
+50 289.5 495 95 re B
+0.1 0.3 0.6 rg
+50 289.5 4 95 re f
+BT
+/F2 9.5 Tf
+0.1 0.25 0.5 rg
+62 370.5 Td
+(Q2: How did you achieve real-time synchronization between Android and the Web Portal?) Tj
+ET
+BT
+/F1 8.5 Tf
+0.2 0.2 0.2 rg
+62 354.5 Td
+(We leveraged Firebase Realtime Database as the shared Single Source of Truth. The Android app maintains) Tj
+ET
+BT
+/F1 8.5 Tf
+0.2 0.2 0.2 rg
+62 343.5 Td
+(persistent WebSocket streams that emit snapshots into StateFlow pipelines. When a tenant submits a UTR on) Tj
+ET
+BT
+/F1 8.5 Tf
+0.2 0.2 0.2 rg
+62 332.5 Td
+(the web portal, an atomic REST PATCH updates the /rents/{id} node with tenantClaimedPaid: true. The Android) Tj
+ET
+BT
+/F1 8.5 Tf
+0.2 0.2 0.2 rg
+62 321.5 Td
+(dashboard immediately reflects this in the Queue filter. When approved, the status transitions to PAID. The) Tj
+ET
+BT
+/F1 8.5 Tf
+0.2 0.2 0.2 rg
+62 310.5 Td
+(web portal features an active polling observer that detects the change, transitions out of the pending) Tj
+ET
+BT
+/F1 8.5 Tf
+0.2 0.2 0.2 rg
+62 299.5 Td
+(state, and renders the official receipt.) Tj
+ET
+0.98 0.98 0.98 rg
+0.8 0.8 0.8 RG
+0.5 w
+50 197.5 495 84 re B
+0.1 0.3 0.6 rg
+50 197.5 4 84 re f
+BT
+/F2 9.5 Tf
+0.1 0.25 0.5 rg
+62 267.5 Td
+(Q3: Why a Web Portal for tenants instead of a Tenant Mobile App?) Tj
+ET
+BT
+/F1 8.5 Tf
+0.2 0.2 0.2 rg
+62 251.5 Td
+(This was a deliberate UX and product strategy decision. Retail shopkeepers resist installing 50MB mobile) Tj
+ET
+BT
+/F1 8.5 Tf
+0.2 0.2 0.2 rg
+62 240.5 Td
+(applications and frequently forget credentials. By building a mobile-first Web Portal accessible via query) Tj
+ET
+BT
+/F1 8.5 Tf
+0.2 0.2 0.2 rg
+62 229.5 Td
+(parameters \(?shop=5\), we achieved zero barrier to entry. The tenant taps a monthly WhatsApp link, reviews) Tj
+ET
+BT
+/F1 8.5 Tf
+0.2 0.2 0.2 rg
+62 218.5 Td
+(their bill, enters their transaction reference, and saves their receipt. It maximizes compliance and) Tj
+ET
+BT
+/F1 8.5 Tf
+0.2 0.2 0.2 rg
+62 207.5 Td
+(adoption.) Tj
+ET
+0.98 0.98 0.98 rg
+0.8 0.8 0.8 RG
+0.5 w
+50 105.5 495 84 re B
+0.1 0.3 0.6 rg
+50 105.5 4 84 re f
+BT
+/F2 9.5 Tf
+0.1 0.25 0.5 rg
+62 175.5 Td
+(Q4: How did you prevent fraudulent payment submissions?) Tj
+ET
+BT
+/F1 8.5 Tf
+0.2 0.2 0.2 rg
+62 159.5 Td
+(We enforced a two-stage verification barrier. A tenant submission is strictly categorized as an unverified) Tj
+ET
+BT
+/F1 8.5 Tf
+0.2 0.2 0.2 rg
+62 148.5 Td
+(claim \(UNDER_REVIEW\) and locks the input fields. The transaction appears in the Admin's dedicated 'Queue') Tj
+ET
+BT
+/F1 8.5 Tf
+0.2 0.2 0.2 rg
+62 137.5 Td
+(badge. The property manager verifies the exact UTR against their live bank statement. Only when the manager) Tj
+ET
+BT
+/F1 8.5 Tf
+0.2 0.2 0.2 rg
+62 126.5 Td
+(clicks 'Verify & Mark Full Paid' does the system generate the official receipt number \(NLM-YYYY-UNIT-XXXX\)) Tj
+ET
+BT
+/F1 8.5 Tf
+0.2 0.2 0.2 rg
+62 115.5 Td
+(and unlock the sealed digital receipt on the tenant's device.) Tj
+ET
+0.8 0.8 0.8 RG
+0.5 w
+50 45 m 545 45 l S
+BT
+/F3 8 Tf
+0.4 0.4 0.4 rg
+50 35 Td
+(Confidential - Enterprise Architecture & Technical Specification) Tj
+480 35 Td
+(Page 2) Tj
+ET
+endstream
+endobj
+7 0 obj
+<< /Type /Page /Parent 2 0 R /MediaBox [0 0 595.28 841.89] /Resources << /Font << /F1 9 0 R /F2 10 0 R /F3 11 0 R >> >> /Contents 8 0 R >>
+endobj
+8 0 obj
+<< /Length 1123 >>
+stream
+0.8 0.8 0.8 RG
+0.5 w
+50 805 m 545 805 l S
+BT
+/F3 8 Tf
+0.4 0.4 0.4 rg
+50 810 Td
+(Naseeb Lal Market Suite - System Documentation & Interview Playbook) Tj
+ET
+0.98 0.98 0.98 rg
+0.8 0.8 0.8 RG
+0.5 w
+50 717 495 73 re B
+0.1 0.3 0.6 rg
+50 717 4 73 re f
+BT
+/F2 9.5 Tf
+0.1 0.25 0.5 rg
+62 776 Td
+(Q5: How does the system handle offline environments and network dropouts?) Tj
+ET
+BT
+/F1 8.5 Tf
+0.2 0.2 0.2 rg
+62 760 Td
+(The Android app employs Firebase local disk persistence and SharedPreferences-backed data caching. If a) Tj
+ET
+BT
+/F1 8.5 Tf
+0.2 0.2 0.2 rg
+62 749 Td
+(field collector records a cash payment in a basement with zero connectivity, the local ledger updates) Tj
+ET
+BT
+/F1 8.5 Tf
+0.2 0.2 0.2 rg
+62 738 Td
+(immediately without freezing the UI. Once network connectivity is restored, Firebase's offline queue) Tj
+ET
+BT
+/F1 8.5 Tf
+0.2 0.2 0.2 rg
+62 727 Td
+(automatically synchronizes the transactions with cloud timestamps and activity audit logs.) Tj
+ET
+0.8 0.8 0.8 RG
+0.5 w
+50 45 m 545 45 l S
+BT
+/F3 8 Tf
+0.4 0.4 0.4 rg
+50 35 Td
+(Confidential - Enterprise Architecture & Technical Specification) Tj
+480 35 Td
+(Page 3) Tj
+ET
+endstream
+endobj
+9 0 obj
+<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>
+endobj
+10 0 obj
+<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica-Bold >>
+endobj
+11 0 obj
+<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica-Oblique >>
+endobj
+xref
+0 12
+0000000000 65535 f 
+0000000015 00000 n 
+0000000064 00000 n 
+0000000133 00000 n 
+0000000287 00000 n 
+0000005993 00000 n 
+0000006147 00000 n 
+0000013202 00000 n 
+0000013356 00000 n 
+0000014531 00000 n 
+0000014601 00000 n 
+0000014677 00000 n 
+trailer
+<< /Size 12 /Root 1 0 R >>
+startxref
+14756
+%%EOF

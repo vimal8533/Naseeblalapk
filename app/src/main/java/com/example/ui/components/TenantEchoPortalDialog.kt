@@ -365,7 +365,7 @@ fun TenantEchoPortalDialog(
 
                                 Button(
                                     onClick = {
-                                        ShareUtils.sendWhatsAppReminder(context, rent, tenant?.phone)
+                                        ShareUtils.sendWhatsAppReminder(context, rent, tenant?.phone, tenant)
                                     },
                                     modifier = Modifier.weight(1.3f),
                                     shape = RoundedCornerShape(8.dp),

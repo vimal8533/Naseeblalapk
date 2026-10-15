@@ -65,7 +65,12 @@ object SmsReminderHelper {
         isPersonal: Boolean = false,
         electricityBill: Double = 0.0,
         flatBaseRent: Double = 0.0,
-        portalUrl: String? = null
+        portalUrl: String? = null,
+        amountDue: Double = 0.0,
+        amountPaid: Double = 0.0,
+        pmcTax: Double = 0.0,
+        priorArrears: Double = 0.0,
+        notes: String = ""
     ): String {
         val cleanName = tenantName.trim().ifBlank { "Kirayedaar" }
         val cleanShop = shopNumber.trim().ifBlank { if (isPersonal) "Flat" else "Dukaan" }
@@ -96,7 +101,24 @@ object SmsReminderHelper {
             else -> "$month $year ka"
         }
 
-        val baseMsg = if (isPersonal) {
+        val baseMsg = if (amountPaid > 0.0) {
+            val totalBill = (if (amountDue > 0.0) amountDue else pendingAmount + amountPaid) + priorArrears
+            val totalBillStr = if (totalBill % 1.0 == 0.0) String.format("%,d", totalBill.toLong()) else String.format("%,.2f", totalBill)
+            val paidStr = if (amountPaid % 1.0 == 0.0) String.format("%,d", amountPaid.toLong()) else String.format("%,.2f", amountPaid)
+            val parts = mutableListOf<String>()
+            val baseRent = (if (amountDue > 0.0) amountDue - electricityBill - pmcTax else flatBaseRent).coerceAtLeast(0.0)
+            if (baseRent > 0.0) parts.add("Kiraya: Rs " + (if (baseRent % 1.0 == 0.0) String.format("%,d", baseRent.toLong()) else String.format("%,.2f", baseRent)))
+            if (electricityBill > 0.0) parts.add("Bijli: Rs " + (if (electricityBill % 1.0 == 0.0) String.format("%,d", electricityBill.toLong()) else String.format("%,.2f", electricityBill)))
+            if (pmcTax > 0.0) parts.add("PMC Tax: Rs " + (if (pmcTax % 1.0 == 0.0) String.format("%,d", pmcTax.toLong()) else String.format("%,.2f", pmcTax)))
+            if (priorArrears > 0.0) parts.add("Purana Baki: Rs " + (if (priorArrears % 1.0 == 0.0) String.format("%,d", priorArrears.toLong()) else String.format("%,.2f", priorArrears)))
+            val partsText = if (parts.isNotEmpty()) " (${parts.joinToString(", ")})" else ""
+            val unitName = if (isPersonal) {
+                if (cleanShop.startsWith("Flat", ignoreCase = true)) cleanShop else "Flat $cleanShop"
+            } else {
+                "Shop No. $cleanShop"
+            }
+            "Namaste $cleanName ji, aapki $unitName ka $cyclePhrase kul hisaab Rs $totalBillStr me se Rs $paidStr jama hua hai. Shesh baki Rs $amountStr due hai$partsText. Kripya samay par jama karein. Shukriya - Naseeb Lal Market$contactSuffix"
+        } else if (isPersonal) {
             val flatLabel = if (cleanShop.startsWith("Flat", ignoreCase = true)) cleanShop else "Flat $cleanShop"
             val breakdownStr = if (electricityBill > 0.0 && flatBaseRent > 0.0) {
                 val rentStr = if (flatBaseRent % 1.0 == 0.0) String.format("%,d", flatBaseRent.toLong()) else String.format("%,.2f", flatBaseRent)
@@ -108,7 +130,12 @@ object SmsReminderHelper {
             val signOff = if (trimmedName.isNotBlank()) "Shukriya - $trimmedName" else "Shukriya"
             "Namaste $cleanName ji, aapke $flatLabel ka $cyclePhrase $breakdownStr due hai. Kripya samay par jama karein. $signOff$contactSuffix"
         } else {
-            "Namaste $cleanName ji, aapki Shop No. $cleanShop ka $cyclePhrase kiraya Rs $amountStr due hai. Kripya samay par jama karein. Shukriya - Naseeb Lal Market$contactSuffix"
+            val parts = mutableListOf<String>()
+            if (electricityBill > 0.0) parts.add("Bijli Bill Rs " + (if (electricityBill % 1.0 == 0.0) String.format("%,d", electricityBill.toLong()) else String.format("%,.2f", electricityBill)))
+            if (pmcTax > 0.0) parts.add("PMC Tax Rs " + (if (pmcTax % 1.0 == 0.0) String.format("%,d", pmcTax.toLong()) else String.format("%,.2f", pmcTax)))
+            if (priorArrears > 0.0) parts.add("Purana Baki Rs " + (if (priorArrears % 1.0 == 0.0) String.format("%,d", priorArrears.toLong()) else String.format("%,.2f", priorArrears)))
+            val partsText = if (parts.isNotEmpty()) " (${parts.joinToString(", ")})" else ""
+            "Namaste $cleanName ji, aapki Shop No. $cleanShop ka $cyclePhrase kiraya Rs $amountStr due hai$partsText. Kripya samay par jama karein. Shukriya - Naseeb Lal Market$contactSuffix"
         }
 
         return if (!portalUrl.isNullOrBlank()) {

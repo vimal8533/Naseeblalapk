@@ -4,6 +4,7 @@ import android.content.Intent
 import android.net.Uri
 import android.widget.Toast
 import com.example.ui.util.ShareUtils
+import com.example.util.BillingCycleHelper
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.horizontalScroll
@@ -99,8 +100,8 @@ fun TenantsScreen(
     shops: List<Shop> = emptyList(),
     archivedTenants: List<Tenant> = emptyList(),
     allHistoricalRents: List<RentRecord> = emptyList(),
-    selectedMonth: String = "September",
-    selectedYear: Int = 2026,
+    selectedMonth: String = BillingCycleHelper.getCurrentMonth(),
+    selectedYear: Int = BillingCycleHelper.getCurrentYear(),
     canManagePersonalTenants: Boolean = false,
     currentWorkspaceMode: com.example.model.AppWorkspaceMode = com.example.model.AppWorkspaceMode.PUBLIC_MARKET,
     onAddOrUpdateTenant: (

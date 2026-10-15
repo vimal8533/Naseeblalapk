@@ -124,6 +124,7 @@ import com.example.ui.theme.StatusPendingBorder
 import com.example.ui.util.MonthlyReportExcelGenerator
 import com.example.ui.util.ReceiptPdfGenerator
 import com.example.ui.util.ShareUtils
+import com.example.util.BillingCycleHelper
 import java.text.SimpleDateFormat
 import java.util.Calendar
 import java.util.Date
@@ -208,10 +209,10 @@ fun DashboardScreen(
         }
     }
 
-    val monthsList = listOf(
-        "January", "February", "March", "April", "May", "June",
-        "July", "August", "September", "October", "November", "December"
-    )
+    val monthsList = BillingCycleHelper.MONTHS
+    val currentCalendarMonth = remember { BillingCycleHelper.getCurrentMonth() }
+    val currentCalendarYear = remember { BillingCycleHelper.getCurrentYear() }
+    val isViewingCurrentMonth = selectedMonth.equals(currentCalendarMonth, ignoreCase = true) && selectedYear == currentCalendarYear
 
     // Memoized Tenant Lookup Map for O(1) instantaneous access during scroll
     val tenantMap = remember(tenants) { tenants.associateBy { it.id } }
@@ -345,9 +346,57 @@ fun DashboardScreen(
                                     expanded = monthDropdownExpanded,
                                     onDismissRequest = { monthDropdownExpanded = false }
                                 ) {
+                                    // Quick shortcut to current month & year
+                                    DropdownMenuItem(
+                                        text = {
+                                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                                Icon(
+                                                    imageVector = Icons.Filled.CalendarToday,
+                                                    contentDescription = null,
+                                                    tint = Color(0xFF15803D),
+                                                    modifier = Modifier.size(15.dp)
+                                                )
+                                                Spacer(modifier = Modifier.width(8.dp))
+                                                Text(
+                                                    text = "⚡ Aaj Ka Mahina ($currentCalendarMonth $currentCalendarYear)",
+                                                    fontWeight = FontWeight.Bold,
+                                                    fontSize = 12.5.sp,
+                                                    color = Color(0xFF15803D)
+                                                )
+                                            }
+                                        },
+                                        onClick = {
+                                            onMonthChanged(currentCalendarMonth)
+                                            onYearChanged(currentCalendarYear)
+                                            monthDropdownExpanded = false
+                                        }
+                                    )
+                                    HorizontalDivider(modifier = Modifier.padding(vertical = 4.dp))
+
                                     monthsList.forEach { m ->
+                                        val isThisMonthCurrent = m.equals(currentCalendarMonth, ignoreCase = true)
                                         DropdownMenuItem(
-                                            text = { Text(m, fontWeight = if (m == selectedMonth) FontWeight.Bold else FontWeight.Normal) },
+                                            text = {
+                                                Row(
+                                                    modifier = Modifier.fillMaxWidth(),
+                                                    horizontalArrangement = Arrangement.SpaceBetween,
+                                                    verticalAlignment = Alignment.CenterVertically
+                                                ) {
+                                                    Text(
+                                                        text = m,
+                                                        fontWeight = if (m == selectedMonth) FontWeight.Bold else FontWeight.Normal,
+                                                        color = if (m == selectedMonth) NavyPrimary else MaterialTheme.colorScheme.onSurface
+                                                    )
+                                                    if (isThisMonthCurrent) {
+                                                        Text(
+                                                            text = "Current ✓",
+                                                            fontSize = 11.sp,
+                                                            fontWeight = FontWeight.SemiBold,
+                                                            color = Color(0xFF15803D)
+                                                        )
+                                                    }
+                                                }
+                                            },
                                             onClick = {
                                                 onMonthChanged(m)
                                                 monthDropdownExpanded = false
@@ -417,7 +466,53 @@ fun DashboardScreen(
                         }
 
                         // Bottom Row: Contextual Cycle / Reminder Strip
-                        Spacer(modifier = Modifier.height(12.dp))
+                        Spacer(modifier = Modifier.height(10.dp))
+
+                        if (!isViewingCurrentMonth) {
+                            Surface(
+                                shape = RoundedCornerShape(10.dp),
+                                color = StatusPartialBg,
+                                border = BorderStroke(1.dp, StatusPartialBorder),
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .clickable {
+                                        onMonthChanged(currentCalendarMonth)
+                                        onYearChanged(currentCalendarYear)
+                                    }
+                            ) {
+                                Row(
+                                    modifier = Modifier.padding(horizontal = 12.dp, vertical = 7.dp),
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    horizontalArrangement = Arrangement.SpaceBetween
+                                ) {
+                                    Row(
+                                        verticalAlignment = Alignment.CenterVertically,
+                                        modifier = Modifier.weight(1f)
+                                    ) {
+                                        Icon(
+                                            imageVector = Icons.Filled.HistoryEdu,
+                                            contentDescription = null,
+                                            tint = StatusPartial,
+                                            modifier = Modifier.size(16.dp)
+                                        )
+                                        Spacer(modifier = Modifier.width(6.dp))
+                                        Text(
+                                            text = "Aap $selectedMonth $selectedYear ka hisaab dekh rahe hain",
+                                            fontSize = 12.sp,
+                                            fontWeight = FontWeight.Medium,
+                                            color = MaterialTheme.colorScheme.onSurface
+                                        )
+                                    }
+                                    Text(
+                                        text = "⚡ Aaj ($currentCalendarMonth) ➔",
+                                        fontSize = 11.5.sp,
+                                        fontWeight = FontWeight.Bold,
+                                        color = Color(0xFF15803D)
+                                    )
+                                }
+                            }
+                            Spacer(modifier = Modifier.height(10.dp))
+                        }
 
                         if (rents.none { it.month == selectedMonth && it.year == selectedYear }) {
                             // Cycle Missing: One-Click Auto-Generate
@@ -959,7 +1054,7 @@ fun DashboardScreen(
                                 pendingReminderRent = rent
                                 pendingReminderWarningType = "PROMISED_ACTIVE"
                             } else {
-                                ShareUtils.sendWhatsAppReminder(context, rent, tenant?.phone)
+                                ShareUtils.sendWhatsAppReminder(context, rent, tenant?.phone, tenant)
                             }
                         },
                         onDownloadReceipt = { ReceiptPdfGenerator.generateAndDownloadReceipt(context, rent) },
@@ -1167,7 +1262,7 @@ fun DashboardScreen(
                         val rentToSend = r
                         val phone = tenant?.phone
                         pendingReminderRent = null
-                        ShareUtils.sendWhatsAppReminder(context, rentToSend, phone)
+                        ShareUtils.sendWhatsAppReminder(context, rentToSend, phone, tenantMap[rentToSend.tenantId])
                     },
                     colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFDC2626)),
                     shape = RoundedCornerShape(8.dp)
@@ -1384,39 +1479,100 @@ fun DashboardScreen(
                                                 }
                                             }
                                             if (dueItem.currentMonthDues > 0) {
+                                                val isItemPartial = dueItem.currentMonthRent?.isPartial == true
                                                 Box(
                                                     modifier = Modifier
                                                         .clip(RoundedCornerShape(6.dp))
-                                                        .background(Color(0xFFFEE2E2))
+                                                        .background(if (isItemPartial) Color(0xFFFEF3C7) else Color(0xFFFEE2E2))
                                                         .padding(horizontal = 6.dp, vertical = 2.dp)
                                                 ) {
                                                     Text(
-                                                        text = "$selectedMonth: ₹${formatAmount(dueItem.currentMonthDues)}",
+                                                        text = if (isItemPartial)
+                                                            "$selectedMonth: ₹${formatAmount(dueItem.currentMonthDues)} (Partial: ₹${formatAmount(dueItem.currentMonthRent!!.amountPaid)} Paid)"
+                                                        else
+                                                            "$selectedMonth: ₹${formatAmount(dueItem.currentMonthDues)}",
                                                         fontSize = 10.5.sp,
-                                                        color = Color(0xFF991B1B),
+                                                        color = if (isItemPartial) Color(0xFF92400E) else Color(0xFF991B1B),
                                                         fontWeight = FontWeight.SemiBold
                                                     )
                                                 }
                                             }
                                         }
 
-                                        // Quick Action Button: Collect Rent if this month's record exists
+                                        // Quick Actions: Collect Rent + 1-Tap Dues Reminder (WhatsApp)
+                                        val itemTenant = tenantMap[dueItem.tenantId]
                                         dueItem.currentMonthRent?.let { rentRec ->
                                             if (rentRec.pendingAmount > 0) {
                                                 Spacer(modifier = Modifier.height(8.dp))
+                                                Row(
+                                                    modifier = Modifier.fillMaxWidth(),
+                                                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                                                ) {
+                                                    Button(
+                                                        onClick = {
+                                                            showDuesBreakdownDialog = false
+                                                            rentToCollect = rentRec
+                                                        },
+                                                        modifier = Modifier.weight(1f),
+                                                        shape = RoundedCornerShape(8.dp),
+                                                        colors = ButtonDefaults.buttonColors(containerColor = NavyDark),
+                                                        contentPadding = PaddingValues(vertical = 6.dp)
+                                                    ) {
+                                                        Text(
+                                                            text = "Collect ₹${formatAmount(rentRec.pendingAmount)}",
+                                                            fontSize = 11.5.sp,
+                                                            fontWeight = FontWeight.Bold,
+                                                            color = Color.White
+                                                        )
+                                                    }
+
+                                                    Button(
+                                                        onClick = {
+                                                            ShareUtils.sendWhatsAppReminder(context, rentRec, dueItem.phone, itemTenant)
+                                                        },
+                                                        modifier = Modifier.weight(1f),
+                                                        shape = RoundedCornerShape(8.dp),
+                                                        colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF16A34A)),
+                                                        contentPadding = PaddingValues(vertical = 6.dp)
+                                                    ) {
+                                                        Icon(
+                                                            imageVector = Icons.Filled.NotificationsActive,
+                                                            contentDescription = null,
+                                                            modifier = Modifier.size(13.dp),
+                                                            tint = Color.White
+                                                        )
+                                                        Spacer(modifier = Modifier.width(4.dp))
+                                                        Text(
+                                                            text = "Reminder 💬",
+                                                            fontSize = 11.5.sp,
+                                                            fontWeight = FontWeight.Bold,
+                                                            color = Color.White
+                                                        )
+                                                    }
+                                                }
+                                            }
+                                        } ?: run {
+                                            if (dueItem.openingDues > 0 && itemTenant != null) {
+                                                Spacer(modifier = Modifier.height(8.dp))
                                                 Button(
                                                     onClick = {
-                                                        showDuesBreakdownDialog = false
-                                                        rentToCollect = rentRec
+                                                        ShareUtils.sendArrearsWhatsAppReminder(context, itemTenant)
                                                     },
                                                     modifier = Modifier.fillMaxWidth(),
                                                     shape = RoundedCornerShape(8.dp),
-                                                    colors = ButtonDefaults.buttonColors(containerColor = NavyDark),
+                                                    colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF16A34A)),
                                                     contentPadding = PaddingValues(vertical = 6.dp)
                                                 ) {
+                                                    Icon(
+                                                        imageVector = Icons.Filled.NotificationsActive,
+                                                        contentDescription = null,
+                                                        modifier = Modifier.size(13.dp),
+                                                        tint = Color.White
+                                                    )
+                                                    Spacer(modifier = Modifier.width(4.dp))
                                                     Text(
-                                                        text = "Collect ₹${formatAmount(rentRec.pendingAmount)}",
-                                                        fontSize = 12.sp,
+                                                        text = "Send Arrears Reminder (WhatsApp)",
+                                                        fontSize = 11.5.sp,
                                                         fontWeight = FontWeight.Bold,
                                                         color = Color.White
                                                     )
@@ -2313,35 +2469,6 @@ fun RentItemCard(
                         fontSize = 11.sp,
                         fontWeight = FontWeight.Medium,
                         color = NavyPrimary
-                    )
-                }
-            }
-
-            if (onOpenTenantEcho != null) {
-                Spacer(modifier = Modifier.height(6.dp))
-                OutlinedButton(
-                    onClick = onOpenTenantEcho,
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .height(34.dp)
-                        .testTag("open_echo_portal_btn_${rent.id}"),
-                    shape = RoundedCornerShape(10.dp),
-                    border = BorderStroke(1.dp, Color(0xFF3B82F6).copy(alpha = 0.5f)),
-                    colors = ButtonDefaults.outlinedButtonColors(containerColor = Color(0xFFEFF6FF)),
-                    contentPadding = PaddingValues(horizontal = 10.dp, vertical = 2.dp)
-                ) {
-                    Icon(
-                        imageVector = Icons.Filled.OpenInNew,
-                        contentDescription = "Tenant Echo Portal",
-                        tint = Color(0xFF1D4ED8),
-                        modifier = Modifier.size(14.dp)
-                    )
-                    Spacer(modifier = Modifier.width(6.dp))
-                    Text(
-                        text = "🌐 Tenant Echo Link & Portal",
-                        fontSize = 11.5.sp,
-                        fontWeight = FontWeight.SemiBold,
-                        color = Color(0xFF1D4ED8)
                     )
                 }
             }

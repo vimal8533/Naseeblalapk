@@ -5,12 +5,13 @@ import android.content.Intent
 import android.net.Uri
 import android.widget.Toast
 import com.example.model.RentRecord
+import com.example.model.Tenant
 
 object ShareUtils {
 
     fun generateTenantEchoPortalUrl(rent: RentRecord): String {
         val echoSlug = "${rent.tenantId}_${rent.month}_${rent.year}".replace(" ", "_")
-        return "https://nasseblalmarkt.web.app/?echo=$echoSlug"
+        return "https://naseeblalmarket.web.app/portal?echo=$echoSlug"
     }
 
     /**
@@ -51,7 +52,7 @@ object ShareUtils {
         return true
     }
 
-    fun formatRentReminderMessage(rent: RentRecord): String {
+    fun formatRentReminderMessage(rent: RentRecord, tenant: Tenant? = null): String {
         val portalLink = generateTenantEchoPortalUrl(rent)
         val unitLabel = if (rent.isPersonal) "Flat No. ${rent.shopNumber}" else "Shop No. ${rent.shopNumber}"
         val periodLabel = if (rent.month.contains("yearly", ignoreCase = true) || rent.month.contains("varshik", ignoreCase = true)) {
@@ -59,10 +60,75 @@ object ShareUtils {
         } else {
             "${rent.month} ${rent.year}"
         }
-        val formattedAmount = formatAmount(rent.pendingAmount)
+        val formattedPending = formatAmount(rent.pendingAmount)
+        val priorArrears = tenant?.previousDues?.coerceAtLeast(0.0) ?: 0.0
+        val baseRent = (rent.amountDue - rent.electricityBill - rent.pmcTax).coerceAtLeast(0.0)
 
         return buildString {
-            appendLine("Namaste ${rent.tenantName} ji, aapki $unitLabel ka $periodLabel kiraya Rs $formattedAmount due hai. Kripya samay par jama karein. Shukriya - Naseeb Lal Market (Sampark: Vimal Kumar, Mob: 7654138539)")
+            if (rent.isPartial || rent.amountPaid > 0.0) {
+                // Detailed breakdown for PARTIAL Dues:
+                appendLine("Namaste ${rent.tenantName} ji,")
+                appendLine("Aapki $unitLabel ka $periodLabel hisaab me aashik bhugtan (Partial Payment) darj hua hai:")
+                appendLine()
+                appendLine("📋 Mad-Vaar Dues Vivran (Kis Chiz Ka Baki Hai):")
+                if (baseRent > 0.0) {
+                    appendLine("• Dukaan/Flat Kiraya: Rs ${formatAmount(baseRent)}")
+                }
+                if (rent.electricityBill > 0.0) {
+                    val unitStr = if (rent.unitsConsumed > 0.0) " (${formatAmount(rent.unitsConsumed)} units)" else ""
+                    appendLine("• Bijli Bill$unitStr: Rs ${formatAmount(rent.electricityBill)}")
+                }
+                if (rent.pmcTax > 0.0) {
+                    appendLine("• PMC Property Tax: Rs ${formatAmount(rent.pmcTax)}")
+                }
+                if (priorArrears > 0.0) {
+                    appendLine("• Pichhla Purana Baki (Prior Arrears): Rs ${formatAmount(priorArrears)}")
+                }
+                appendLine("---------------------------")
+                val totalWithArrears = rent.amountDue + priorArrears
+                appendLine("Kul Rakam (Total Bill): Rs ${formatAmount(totalWithArrears)}")
+                appendLine("Aapke dwara Jama (Paid): Rs ${formatAmount(rent.amountPaid)}")
+                val netRemaining = rent.pendingAmount + priorArrears
+                appendLine("👉 Shesh Dues (Remaining Balance): Rs ${formatAmount(netRemaining)}")
+                if (rent.notes.isNotBlank()) {
+                    appendLine("ℹ️ Note: ${rent.notes}")
+                }
+                appendLine()
+                appendLine("Kripya shesh baki rashi samay par jama karein.")
+            } else {
+                val hasMultipleItems = rent.electricityBill > 0.0 || rent.pmcTax > 0.0 || priorArrears > 0.0
+                if (hasMultipleItems) {
+                    appendLine("Namaste ${rent.tenantName} ji,")
+                    appendLine("Aapki $unitLabel ka $periodLabel hisaab due hai:")
+                    appendLine()
+                    appendLine("📋 Dues Vivran (Kis Chiz Ka Baki Hai):")
+                    if (baseRent > 0.0) {
+                        appendLine("• Dukaan/Flat Kiraya: Rs ${formatAmount(baseRent)}")
+                    }
+                    if (rent.electricityBill > 0.0) {
+                        val unitStr = if (rent.unitsConsumed > 0.0) " (${formatAmount(rent.unitsConsumed)} units)" else ""
+                        appendLine("• Bijli Bill$unitStr: Rs ${formatAmount(rent.electricityBill)}")
+                    }
+                    if (rent.pmcTax > 0.0) {
+                        appendLine("• PMC Property Tax: Rs ${formatAmount(rent.pmcTax)}")
+                    }
+                    if (priorArrears > 0.0) {
+                        appendLine("• Pichhla Purana Baki: Rs ${formatAmount(priorArrears)}")
+                    }
+                    appendLine("---------------------------")
+                    val netTotal = rent.pendingAmount + priorArrears
+                    appendLine("👉 Kul Dues (Total Amount Due): Rs ${formatAmount(netTotal)}")
+                    if (rent.notes.isNotBlank()) {
+                        appendLine("ℹ️ Note: ${rent.notes}")
+                    }
+                    appendLine()
+                    appendLine("Kripya samay par jama karein.")
+                } else {
+                    appendLine("Namaste ${rent.tenantName} ji, aapki $unitLabel ka $periodLabel kiraya Rs $formattedPending due hai. Kripya samay par jama karein.")
+                }
+            }
+            appendLine()
+            appendLine("Shukriya - Naseeb Lal Market (Sampark: Vimal Kumar, Mob: 7654138539)")
             appendLine()
             appendLine("🔗 Apna Payment Status & Portal Link:")
             appendLine(portalLink)
@@ -71,12 +137,28 @@ object ShareUtils {
         }.trim()
     }
 
+    fun formatArrearsOnlyReminderMessage(tenant: Tenant): String {
+        val priorAmount = formatAmount(tenant.previousDues)
+        val unitLabel = if (tenant.isPersonal) "Flat No. ${tenant.shopNumber}" else "Shop No. ${tenant.shopNumber}"
+        return buildString {
+            appendLine("Namaste ${tenant.name} ji,")
+            appendLine("Aapki $unitLabel ka pichhla purana baki (Prior Arrears) Rs $priorAmount due hai.")
+            if (tenant.notes.isNotBlank()) {
+                appendLine("ℹ️ Note: ${tenant.notes}")
+            }
+            appendLine()
+            appendLine("Kripya ye baki rashi samay par jama karein.")
+            appendLine()
+            appendLine("Shukriya - Naseeb Lal Market (Sampark: Vimal Kumar, Mob: 7654138539)")
+        }.trim()
+    }
+
     /**
      * Sends a polite and clear WhatsApp rent payment reminder to the tenant.
      * Targets tenant's phone number directly if available, otherwise opens chooser.
      */
-    fun sendWhatsAppReminder(context: Context, rent: RentRecord, tenantPhone: String? = null) {
-        val reminderText = formatRentReminderMessage(rent)
+    fun sendWhatsAppReminder(context: Context, rent: RentRecord, tenantPhone: String? = null, tenant: Tenant? = null) {
+        val reminderText = formatRentReminderMessage(rent, tenant)
 
         val cleanPhone = tenantPhone?.filter { it.isDigit() }?.let { raw ->
             when {
@@ -102,12 +184,38 @@ object ShareUtils {
         }
     }
 
+    fun sendArrearsWhatsAppReminder(context: Context, tenant: Tenant) {
+        val reminderText = formatArrearsOnlyReminderMessage(tenant)
+        val cleanPhone = tenant.phone.filter { it.isDigit() }.let { raw ->
+            when {
+                raw.length == 10 -> "91$raw"
+                raw.startsWith("0") && raw.length == 11 -> "91${raw.substring(1)}"
+                raw.startsWith("91") && raw.length == 12 -> raw
+                else -> raw
+            }
+        }
+
+        try {
+            if (cleanPhone.isNotBlank()) {
+                val url = "https://api.whatsapp.com/send?phone=$cleanPhone&text=${safeUrlEncode(reminderText)}"
+                val waIntent = Intent(Intent.ACTION_VIEW, Uri.parse(url)).apply {
+                    addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                }
+                context.startActivity(waIntent)
+            } else {
+                openGenericShare(context, reminderText, "Send Dues Reminder (WhatsApp / SMS)")
+            }
+        } catch (_: Exception) {
+            openGenericShare(context, reminderText, "Send Dues Reminder (WhatsApp / SMS)")
+        }
+    }
+
     /**
      * Sends the reminder directly to the tenant's Phone SMS Inbox.
      * Works on any phone even without WhatsApp or internet.
      */
-    fun sendSmsReminder(context: Context, rent: RentRecord, tenantPhone: String? = null) {
-        val reminderText = formatRentReminderMessage(rent)
+    fun sendSmsReminder(context: Context, rent: RentRecord, tenantPhone: String? = null, tenant: Tenant? = null) {
+        val reminderText = formatRentReminderMessage(rent, tenant)
         val cleanPhone = tenantPhone?.filter { it.isDigit() }?.let { raw ->
             when {
                 raw.length == 10 -> raw

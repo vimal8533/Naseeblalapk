@@ -16,6 +16,7 @@ import com.example.model.Shop
 import com.example.model.SubAdminUser
 import com.example.model.Tenant
 import com.example.model.TenantEchoRecord
+import com.example.util.BillingCycleHelper
 import com.example.util.NotificationHelper
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -805,8 +806,8 @@ class FirebaseRealtimeSync(private val context: Context) {
             shopNumber = obj.optString("shopNumber", ""),
             tenantId = obj.optString("tenantId", ""),
             tenantName = obj.optString("tenantName", ""),
-            month = obj.optString("month", "September"),
-            year = obj.optInt("year", 2026),
+            month = obj.optString("month", BillingCycleHelper.getCurrentMonth()),
+            year = obj.optInt("year", BillingCycleHelper.getCurrentYear()),
             amountDue = obj.optDouble("amountDue", 0.0),
             amountPaid = obj.optDouble("amountPaid", 0.0),
             pmcTax = obj.optDouble("pmcTax", 0.0),
@@ -1059,8 +1060,8 @@ class FirebaseRealtimeSync(private val context: Context) {
             tenantName = obj.optString("tenantName", ""),
             tenantPhone = obj.optString("tenantPhone", ""),
             shopNumber = obj.optString("shopNumber", ""),
-            month = obj.optString("month", "September"),
-            year = obj.optInt("year", 2026),
+            month = obj.optString("month", BillingCycleHelper.getCurrentMonth()),
+            year = obj.optInt("year", BillingCycleHelper.getCurrentYear()),
             amountDue = obj.optDouble("amountDue", 0.0),
             amountPaid = obj.optDouble("amountPaid", 0.0),
             pendingAmount = obj.optDouble("pendingAmount", 0.0),

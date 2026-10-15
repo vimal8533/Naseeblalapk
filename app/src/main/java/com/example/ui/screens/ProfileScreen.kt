@@ -1,5 +1,6 @@
 package com.example.ui.screens
 
+import com.example.util.BillingCycleHelper
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Arrangement
@@ -22,6 +23,8 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Description
 import androidx.compose.material.icons.filled.CheckCircle
+import androidx.compose.material.icons.filled.ContentCopy
+import androidx.compose.material.icons.filled.Storefront
 import androidx.compose.material.icons.filled.SwapHoriz
 import androidx.compose.material.icons.filled.Apartment
 import androidx.compose.material.icons.filled.Store
@@ -47,6 +50,7 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
@@ -104,10 +108,11 @@ fun ProfileScreen(
     totalShops: Int,
     totalTenants: Int,
     workspaceMode: AppWorkspaceMode = AppWorkspaceMode.PUBLIC_MARKET,
+    tenants: List<Tenant> = emptyList(),
     archivedTenants: List<Tenant> = emptyList(),
     allHistoricalRents: List<RentRecord> = emptyList(),
-    selectedMonth: String = "September",
-    selectedYear: Int = 2026,
+    selectedMonth: String = BillingCycleHelper.getCurrentMonth(),
+    selectedYear: Int = BillingCycleHelper.getCurrentYear(),
     onRestoreTenant: (tenantId: String) -> Unit = {},
     onPermanentlyDeleteTenant: (tenantId: String) -> Unit = {},
     onToggleWorkspace: () -> Unit = {},
@@ -132,7 +137,10 @@ fun ProfileScreen(
     var showDelegationDialog by remember { mutableStateOf(false) }
     var isCheckingUpdates by remember { mutableStateOf(false) }
     var editAdminName by remember(user) { mutableStateOf(user?.displayName ?: "Vimal Kumar") }
-    var editAdminPhone by remember(user) { mutableStateOf(user?.phone ?: "9876543210") }
+    var editAdminPhone by remember(user) {
+        val phone = user?.phone?.trim()
+        mutableStateOf(if (phone.isNullOrBlank() || phone == "9876543210") "7654138539" else phone)
+    }
 
     val lastSyncStr = remember(lastSyncedAt) {
         if (lastSyncedAt > 0) {
@@ -213,7 +221,7 @@ fun ProfileScreen(
             )
             Spacer(modifier = Modifier.width(4.dp))
             Text(
-                text = "Reminder Contact: ${user?.phone?.ifBlank { if (isSuperAdmin) "9876543210" else "None" } ?: ""}",
+                text = "Reminder Contact: ${user?.phone?.let { if (it == "9876543210" || it.isBlank()) (if (isSuperAdmin) "7654138539" else "None") else it } ?: if (isSuperAdmin) "7654138539" else "None"}",
                 fontSize = 12.sp,
                 fontWeight = FontWeight.Medium,
                 color = MaterialTheme.colorScheme.onSurfaceVariant
@@ -223,7 +231,7 @@ fun ProfileScreen(
                 IconButton(
                     onClick = {
                         editAdminName = user?.displayName ?: "Vimal Kumar"
-                        editAdminPhone = user?.phone?.ifBlank { "9876543210" } ?: "9876543210"
+                        editAdminPhone = user?.phone?.let { if (it == "9876543210" || it.isBlank()) "7654138539" else it } ?: "7654138539"
                         showEditAdminDialog = true
                     },
                     modifier = Modifier.size(24.dp)
@@ -619,7 +627,7 @@ fun ProfileScreen(
             }
         }
 
-        // Kirayedaar Self-Service Web Portal Card
+        // Kirayedaar Self-Service Web Portal & Tenant Echo Hub Card
         Spacer(modifier = Modifier.height(14.dp))
         Card(
             modifier = Modifier
@@ -636,56 +644,98 @@ fun ProfileScreen(
                 ) {
                     Box(
                         modifier = Modifier
-                            .size(38.dp)
+                            .size(40.dp)
                             .clip(RoundedCornerShape(10.dp))
                             .background(GoldAccent.copy(alpha = 0.15f)),
                         contentAlignment = Alignment.Center
                     ) {
-                        Text("🌐", fontSize = 19.sp)
+                        Text("🌐", fontSize = 20.sp)
                     }
                     Spacer(modifier = Modifier.width(12.dp))
-                    Column {
+                    Column(modifier = Modifier.weight(1f)) {
                         Text(
-                            text = "Kirayedaar Web Portal",
+                            text = "Tenant Echo & Kirayedaar Portals",
                             fontWeight = FontWeight.Bold,
-                            fontSize = 14.sp
+                            fontSize = 14.5.sp
                         )
                         Text(
-                            text = "Tenant Self-Service & Online Bill",
+                            text = "Har dukan ka dedicated online bill & self-service link",
                             fontSize = 11.5.sp,
                             color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
                     }
                 }
 
-                Spacer(modifier = Modifier.height(10.dp))
-                Text(
-                    text = "Official Permanent Domain:",
-                    fontSize = 11.sp,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
-                Text(
-                    text = "https://nasseblalmarkt.web.app",
-                    fontSize = 12.5.sp,
-                    fontWeight = FontWeight.Bold,
-                    color = GoldDark
-                )
+                Spacer(modifier = Modifier.height(12.dp))
+
+                Surface(
+                    shape = RoundedCornerShape(10.dp),
+                    color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.4f),
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = 12.dp, vertical = 8.dp),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Column(modifier = Modifier.weight(1f)) {
+                            Text(
+                                text = "Official Portal Website:",
+                                fontSize = 10.5.sp,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                            Text(
+                                text = "https://naseeblalmarket.web.app/portal",
+                                fontSize = 12.sp,
+                                fontWeight = FontWeight.Bold,
+                                color = GoldDark
+                            )
+                        }
+
+                        IconButton(
+                            onClick = {
+                                val cm = context.getSystemService(android.content.Context.CLIPBOARD_SERVICE) as? android.content.ClipboardManager
+                                cm?.setPrimaryClip(android.content.ClipData.newPlainText("Portal Website", "https://naseeblalmarket.web.app/portal"))
+                                android.widget.Toast.makeText(context, "Portal link copy ho gaya! ✓", android.widget.Toast.LENGTH_SHORT).show()
+                            },
+                            modifier = Modifier.size(32.dp)
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.ContentCopy,
+                                contentDescription = "Copy Link",
+                                tint = NavyPrimary,
+                                modifier = Modifier.size(16.dp)
+                            )
+                        }
+                    }
+                }
 
                 if (onOpenTenantPortal != null) {
                     Spacer(modifier = Modifier.height(12.dp))
-                    OutlinedButton(
+                    Button(
                         onClick = onOpenTenantPortal,
                         modifier = Modifier.fillMaxWidth(),
                         shape = RoundedCornerShape(10.dp),
-                        border = androidx.compose.foundation.BorderStroke(1.dp, GoldAccent.copy(alpha = 0.6f)),
-                        colors = ButtonDefaults.outlinedButtonColors(
-                            contentColor = GoldDark
-                        )
+                        colors = ButtonDefaults.buttonColors(
+                            containerColor = NavyDark,
+                            contentColor = Color.White
+                        ),
+                        contentPadding = PaddingValues(vertical = 10.dp)
                     ) {
+                        Icon(
+                            imageVector = Icons.Default.Storefront,
+                            contentDescription = null,
+                            tint = GoldAccent,
+                            modifier = Modifier.size(16.dp)
+                        )
+                        Spacer(modifier = Modifier.width(8.dp))
                         Text(
-                            text = "🌐 Preview Kirayedaar Portal / Lookup Bill",
-                            fontWeight = FontWeight.SemiBold,
-                            fontSize = 13.sp
+                            text = "🏪 Dukan Anusar Dedicated Links Kholein ↗",
+                            fontWeight = FontWeight.Bold,
+                            fontSize = 12.5.sp,
+                            color = Color.White
                         )
                     }
                 }
@@ -1103,7 +1153,7 @@ fun ProfileScreen(
                         value = editAdminPhone,
                         onValueChange = { editAdminPhone = it },
                         label = { Text("Contact Mobile Number") },
-                        placeholder = { Text("9876543210") },
+                        placeholder = { Text("7654138539") },
                         singleLine = true,
                         keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Phone),
                         modifier = Modifier.fillMaxWidth()

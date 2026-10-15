@@ -219,7 +219,12 @@ fun MainMarketScreen(
                                 .clickable(
                                     interactionSource = remember { MutableInteractionSource() },
                                     indication = null,
-                                    onClick = { currentTab = tab }
+                                    onClick = {
+                                    if (tab == MarketTab.Dashboard && currentTab != MarketTab.Dashboard) {
+                                        viewModel.resetToCurrentMonth()
+                                    }
+                                    currentTab = tab
+                                }
                                 )
                                 .testTag(tab.tag)
                                 .padding(vertical = 2.dp),
@@ -441,6 +446,7 @@ fun MainMarketScreen(
                         totalShops = shops.size,
                         totalTenants = tenants.size,
                         workspaceMode = workspaceMode,
+                        tenants = tenants,
                         archivedTenants = archivedTenants,
                         allHistoricalRents = allHistoricalRents,
                         selectedMonth = selectedMonth,
@@ -522,6 +528,9 @@ fun MainMarketScreen(
     if (showTenantLookupDialog) {
         TenantPortalLookupDialog(
             rents = allRents,
+            tenants = tenants,
+            selectedMonth = selectedMonth,
+            selectedYear = selectedYear,
             onDismiss = { showTenantLookupDialog = false },
             onSelectRent = { selectedRent ->
                 showTenantLookupDialog = false
