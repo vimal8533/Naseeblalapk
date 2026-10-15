@@ -1,6 +1,7 @@
 package com.example.ui.screens
 
 import com.example.util.BillingCycleHelper
+import com.example.ui.util.ProjectDocumentationPdfGenerator
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Arrangement
@@ -738,6 +739,84 @@ fun ProfileScreen(
                             color = Color.White
                         )
                     }
+                }
+            }
+        }
+
+        // Project Technical Architecture & Workflow Documentation Card
+        Spacer(modifier = Modifier.height(14.dp))
+        Card(
+            modifier = Modifier
+                .fillMaxWidth()
+                .testTag("profile_project_doc_pdf_card"),
+            shape = RoundedCornerShape(16.dp),
+            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+            elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
+        ) {
+            Column(modifier = Modifier.padding(16.dp)) {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Box(
+                        modifier = Modifier
+                            .size(40.dp)
+                            .clip(RoundedCornerShape(10.dp))
+                            .background(NavyPrimary.copy(alpha = 0.12f)),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Text("📄", fontSize = 20.sp)
+                    }
+                    Spacer(modifier = Modifier.width(12.dp))
+                    Column(modifier = Modifier.weight(1f)) {
+                        Text(
+                            text = "Project Architecture & Workflow PDF",
+                            fontWeight = FontWeight.Bold,
+                            fontSize = 14.5.sp
+                        )
+                        Text(
+                            text = "Tech stack, workflows & interview playbook",
+                            fontSize = 11.5.sp,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+                }
+
+                Spacer(modifier = Modifier.height(12.dp))
+
+                Text(
+                    text = "Professional documentation detailing system architecture, database schema, zero-permission messaging queue, Tenant Echo protocol, and interview presentation pitch.",
+                    fontSize = 12.sp,
+                    lineHeight = 16.sp,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+
+                Spacer(modifier = Modifier.height(12.dp))
+
+                Button(
+                    onClick = {
+                        ProjectDocumentationPdfGenerator.generateAndShareDocumentationPdf(context)
+                    },
+                    modifier = Modifier.fillMaxWidth(),
+                    shape = RoundedCornerShape(10.dp),
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = NavyDark,
+                        contentColor = Color.White
+                    ),
+                    contentPadding = PaddingValues(vertical = 10.dp)
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.Description,
+                        contentDescription = null,
+                        tint = GoldAccent,
+                        modifier = Modifier.size(16.dp)
+                    )
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Text(
+                        text = "Download Documentation PDF (3 Pages)",
+                        fontWeight = FontWeight.Bold,
+                        fontSize = 12.5.sp
+                    )
                 }
             }
         }

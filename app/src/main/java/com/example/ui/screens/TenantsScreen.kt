@@ -1238,35 +1238,6 @@ fun TenantCardItem(
                     }
                 }
             }
-
-            if (onOpenTenantEcho != null) {
-                Spacer(modifier = Modifier.height(8.dp))
-                OutlinedButton(
-                    onClick = onOpenTenantEcho,
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .height(34.dp)
-                        .testTag("tenant_echo_btn_${tenant.id}"),
-                    shape = RoundedCornerShape(10.dp),
-                    border = BorderStroke(1.dp, Color(0xFF3B82F6).copy(alpha = 0.5f)),
-                    colors = ButtonDefaults.outlinedButtonColors(containerColor = Color(0xFFEFF6FF)),
-                    contentPadding = PaddingValues(horizontal = 10.dp, vertical = 2.dp)
-                ) {
-                    Icon(
-                        imageVector = Icons.Filled.OpenInNew,
-                        contentDescription = "Tenant Echo Portal",
-                        tint = Color(0xFF1D4ED8),
-                        modifier = Modifier.size(14.dp)
-                    )
-                    Spacer(modifier = Modifier.width(6.dp))
-                    Text(
-                        text = "🌐 Tenant Echo Link & Portal",
-                        fontSize = 11.5.sp,
-                        fontWeight = FontWeight.SemiBold,
-                        color = Color(0xFF1D4ED8)
-                    )
-                }
-            }
         }
     }
 }
